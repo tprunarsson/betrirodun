@@ -17,9 +17,9 @@ for (ar in seq(2009,2009)) {
   O <- O[-nrow(O),]                                     # remove last row, its not data
   ORBIT = rbind(ORBIT,O)
 }
-rm(list = c("O"))
+rm(list = c("O", "fname", "filepath", "filename"))
 
-# Finna einkvæma aðgerðakort
+# Finna einkvæmt aðgerðakort
 adgerdakort = unique(ORBIT$Aðgerðarkort)
 
 # Varpa N/A í nan
