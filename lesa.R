@@ -2,6 +2,16 @@
 require(openxlsx)
 require(lubridate) # https://www.r-statistics.com/2012/03/do-more-with-dates-and-times-in-r-with-lubridate-1-1-0/
 
+# User defined function for correcting times that run after midnight
+midnightrun <- function(starttime, endtime) {
+  idx <- (starttime > endtime)
+  idx[is.na(endtime)] <- FALSE
+  endtime[idx] <- endtime[idx] + hms('24:00:00')
+  return(endtime)
+}
+
+
+
 setwd("~/projects/betrirodun")
 # Hvar eru skjölin og hvað heita þau?
 filepath = c("./gogn/")
@@ -50,34 +60,38 @@ for (a in adgerdakort) {
   InnAStofu <- Dagsetning + hm(ORBIT$Inn.á.stofu[i], quiet = TRUE)
   SvaefingHefst <- Dagsetning + hm(ORBIT$Svæfing.hefst[i], quiet = TRUE)
   AdgerdHefst <- Dagsetning + hm(ORBIT$Aðgerð.hefst[i], quiet = TRUE)
-  AdgerdLykur <- Dagsetning + hm(ORBIT$Aðgerð.lýkur[i], quiet = TRUE)
-  SvaefingLykur <- Dagsetning + hm(ORBIT$Svæfingu.lýkur[i], quiet = TRUE)
-  UtAfSkurdgangi <- Dagsetning + hm(ORBIT$Út.af.skurðgangi[i], quiet = TRUE)
-  InnAVoknun <- Dagsetning + hm(ORBIT$Inn.á.vöknun[i], quiet = TRUE)
-  UtAfVoknun <- Dagsetning + hm(ORBIT$Út.af.vöknun[i], quiet = TRUE)
+  # Aðgerð getur farið yfir á næsta dag ... notum midnightrun til að athuga það og laga
+  AdgerdLykur <- midnightrun(AdgerdHefst, Dagsetning + hm(ORBIT$Aðgerð.lýkur[i], quiet = TRUE))
+  InnAVoknun <- midnightrun(AdgerdHefst, Dagsetning + hm(ORBIT$Inn.á.vöknun[i], quiet = TRUE))
+  SvaefingLykur <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Svæfingu.lýkur[i], quiet = TRUE))
+  UtAfVoknun <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Út.af.vöknun[i], quiet = TRUE))
+  UtAfSkurdgangi <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Út.af.skurðgangi[i], quiet = TRUE))
+  
   ASA <- ORBIT$ASA.flokkun[i]
   Age <- ORBIT$Age.at.operation[i]
   LeguNumer <- ORBIT$`Legu-.eða.komunúmer`[i]
-  # Athuga hvort viðkomandi haf farið á legudeild
+  # Athuga hvort viðkomandi haf farið á legudeild, legu númer 
   LeguInnritunartimi = as_datetime(rep(NaN, length(LeguNumer)))
   LeguUtskriftartimi = as_datetime(rep(NaN, length(LeguNumer)))
   for (k in seq(1,length(LeguNumer))) {
     i = which(SAGALEGUDEILD$Legunúmer == LeguNumer[k])
-    if (length(i) == 1) {
+    if (length(i) == 1) {  # default er NaN
       LeguInnritunartimi[k] =  ymd(convertToDateTime(SAGALEGUDEILD$Dagsetning.innskriftar[i]))
       LeguInnritunartimi[k] = LeguInnritunartimi[k] + hm(SAGALEGUDEILD$`Innritunar-tími`[i])
       LeguUtskriftartimi[k] =  ymd(convertToDateTime(SAGALEGUDEILD$Dagsetning.útskriftar[i]))
       LeguUtskriftartimi[k] = LeguUtskriftartimi[k] + hm(SAGALEGUDEILD$`Útskriftar-tími`[i])
     }
-    else if (length(i) > 1) {
+    else if (length(i) > 1) { # villutékk
+      warning("legunúmer we ekki einkvæmt!")
       print(SAGALEGUDEILD$Dagsetning.innskriftar[i])
     }
   }
-
+  LeguDagar = as.numeric(difftime(LeguUtskriftartimi,LeguInnritunartimi,units = "days"))
+  
   adkort[[a]] = data.frame(Dagsetning, 
                            InnASkurdgang,InnAStofu,SvaefingHefst, 
                            AdgerdHefst,AdgerdLykur,SvaefingLykur,
-                           UtAfSkurdgangi,InnAVoknun,UtAfVoknun, LeguUtskriftartimi, LeguInnritunartimi)
+                           UtAfSkurdgangi,InnAVoknun,UtAfVoknun, LeguUtskriftartimi, LeguInnritunartimi, Legudagar)
   
   
 }
