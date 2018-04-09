@@ -40,7 +40,7 @@ for (ar in seq(2015,2015)) {
   SAGAGJORGAESLA = rbind(SAGAGJORGAESLA,G)
   
 }
-rm(list = c("O", "S", "fname", "filepath", "filename"))
+rm(list = c("O", "S", "G", "fname", "filepath", "filename"))
 
 # Finna einkvæmt aðgerðakort
 adgerdakort = unique(ORBIT$Aðgerðarkort)
@@ -67,8 +67,14 @@ for (a in adgerdakort) {
   UtAfVoknun <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Út.af.vöknun[i], quiet = TRUE))
   UtAfSkurdgangi <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Út.af.skurðgangi[i], quiet = TRUE))
   
+  # Eiginleikar viðkomandi
   ASA <- ORBIT$ASA.flokkun[i]
   Age <- ORBIT$Age.at.operation[i]
+  
+  # Teymi tengt ...
+  Laeknir <- NULL
+  
+  # Legutengt ...
   LeguNumer <- ORBIT$`Legu-.eða.komunúmer`[i]
   # Athuga hvort viðkomandi haf farið á legudeild, legu númer 
   LeguInnritunartimi = as_datetime(rep(NaN, length(LeguNumer)))
@@ -87,6 +93,8 @@ for (a in adgerdakort) {
     }
   }
   LeguDagar = as.numeric(difftime(LeguUtskriftartimi,LeguInnritunartimi,units = "days"))
+  
+  # Gjörgæslutengt ...
   
   adkort[[a]] = data.frame(Dagsetning, 
                            InnASkurdgang,InnAStofu,SvaefingHefst, 
