@@ -10,14 +10,27 @@ filename = c("_með_aðgerðakortum.xlsx")
 
 # Lestum eitt ár í einu:
 ORBIT = NULL
-for (ar in seq(2009,2009)) {
+SAGALEGUDEILD = NULL
+SAGAGJORGAESLA = NULL
+
+for (ar in seq(2015,2015)) {
   fname = paste0(filepath,as.character(ar),filename, sep="")
   print(fname)
+
   O <- read.xlsx(fname, sheet = "Skurðaðgerðir - ORBIT", startRow = 2, colNames = TRUE)
   O <- O[-nrow(O),]                                     # remove last row, its not data
   ORBIT = rbind(ORBIT,O)
+  
+  S <- read.xlsx(fname, sheet = "Legudeild - SAGA", startRow = 2, colNames = TRUE)
+  S <- S[-nrow(S),]                                     # remove last row, its not data
+  SAGALEGUDEILD = rbind(SAGALEGUDEILD,S)
+  
+  G <- read.xlsx(fname, sheet = "Gjörgæsla - SAGA", startRow = 2, colNames = TRUE)
+  G <- G[-nrow(G),]                                     # remove last row, its not data
+  SAGAGJORGAESLA = rbind(SAGAGJORGAESLA,G)
+  
 }
-rm(list = c("O", "fname", "filepath", "filename"))
+rm(list = c("O", "S", "fname", "filepath", "filename"))
 
 # Finna einkvæmt aðgerðakort
 adgerdakort = unique(ORBIT$Aðgerðarkort)
@@ -42,10 +55,31 @@ for (a in adgerdakort) {
   UtAfSkurdgangi <- Dagsetning + hm(ORBIT$Út.af.skurðgangi[i], quiet = TRUE)
   InnAVoknun <- Dagsetning + hm(ORBIT$Inn.á.vöknun[i], quiet = TRUE)
   UtAfVoknun <- Dagsetning + hm(ORBIT$Út.af.vöknun[i], quiet = TRUE)
+  ASA <- ORBIT$ASA.flokkun[i]
+  Age <- ORBIT$Age.at.operation[i]
+  LeguNumer <- ORBIT$`Legu-.eða.komunúmer`[i]
+  # Athuga hvort viðkomandi haf farið á legudeild
+  LeguInnritunartimi = as_datetime(rep(NaN, length(LeguNumer)))
+  LeguUtskriftartimi = as_datetime(rep(NaN, length(LeguNumer)))
+  for (k in seq(1,length(LeguNumer))) {
+    i = which(SAGALEGUDEILD$Legunúmer == LeguNumer[k])
+    if (length(i) == 1) {
+      LeguInnritunartimi[k] =  ymd(convertToDateTime(SAGALEGUDEILD$Dagsetning.innskriftar[i]))
+      LeguInnritunartimi[k] = LeguInnritunartimi[k] + hm(SAGALEGUDEILD$`Innritunar-tími`[i])
+      LeguUtskriftartimi[k] =  ymd(convertToDateTime(SAGALEGUDEILD$Dagsetning.útskriftar[i]))
+      LeguUtskriftartimi[k] = LeguUtskriftartimi[k] + hm(SAGALEGUDEILD$`Útskriftar-tími`[i])
+    }
+    else if (length(i) > 1) {
+      print(SAGALEGUDEILD$Dagsetning.innskriftar[i])
+    }
+  }
+
   adkort[[a]] = data.frame(Dagsetning, 
-                            InnASkurdgang,InnAStofu,SvaefingHefst, 
-                            AdgerdHefst,AdgerdLykur,SvaefingLykur,
-                            UtAfSkurdgangi,InnAVoknun,UtAfVoknun)
+                           InnASkurdgang,InnAStofu,SvaefingHefst, 
+                           AdgerdHefst,AdgerdLykur,SvaefingLykur,
+                           UtAfSkurdgangi,InnAVoknun,UtAfVoknun, LeguUtskriftartimi, LeguInnritunartimi)
+  
+  
 }
   
 
