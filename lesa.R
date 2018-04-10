@@ -63,7 +63,7 @@ for (n in names(ORBIT)) {
 # Búum til data frame fyrir hvert kort með upplýsingum ...
 adkort = list()
 # for debugging speedup using only Gall ...
-adgerdakort = c("Gall, CBD expl. kviðsjá", "Gall, gallgangnaaðgerð", "Gall, kviðsjá", "Gall, kviðsjá, lengri", "Gall, opin  ")
+adgerdakort = c("Gall, CBD expl., kviðsjá", "Gall, gallgangnaaðgerð", "Gall, kviðsjá", "Gall, kviðsjá, lengri", "Gall, opin  ")
 for (a in adgerdakort) {
   print(a)
   
@@ -87,8 +87,10 @@ for (a in adgerdakort) {
   AdgerdaTimi <- as.numeric(difftime(AdgerdLykur, AdgerdHefst, units = "mins"))
   LokaTimi <- as.numeric(difftime(InnAVoknun, AdgerdLykur,units = "mins"))
   LokaTimi[is.na(LokaTimi)] <- as.numeric(difftime(SvaefingLykur[is.na(LokaTimi)],AdgerdLykur[is.na(LokaTimi)],units="mins"))
+  LokaTimi[is.na(LokaTimi)] <- as.numeric(difftime(UtAfVoknun[is.na(LokaTimi)],AdgerdLykur[is.na(LokaTimi)],units="mins"))
+  LokaTimi[is.na(LokaTimi)] <- 0 # some times are missing here ...
   LokaTimi <- pmax(LokaTimi,0) # hefur komið -ve timi ?!
-  Skurdstofutimi <- UndirTimi + Adgerdatimi + LokaTimi
+  Skurdstofutimi <- UndirTimi + AdgerdaTimi + LokaTimi
   
   if ((sum(is.na(UndirTimi)) > 0) | (sum(is.na(AdgerdaTimi)) > 0) | (sum(is.na(LokaTimi)) > 0)) {
     stop("just stopped because of NaN in timing")
