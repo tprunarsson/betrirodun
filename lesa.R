@@ -23,7 +23,7 @@ SAGAGJORGAESLA = NULL
 STARFSMENN = NULL
 BIDLISTI = NULL
 
-for (ar in seq(2010,2015)) {
+for (ar in seq(2010,2010)) {
   fname = paste0(filepath,as.character(ar),filename, sep="")
   print(fname)
 
@@ -63,7 +63,7 @@ for (n in names(ORBIT)) {
 # Búum til data frame fyrir hvert kort með upplýsingum ...
 adkort = list()
 # for debugging speedup using only Gall ...
-adgerdakort = c("Gall, CBD expl., kviðsjá", "Gall, gallgangnaaðgerð", "Gall, kviðsjá", "Gall, kviðsjá, lengri", "Gall, opin  ")
+# adgerdakort = c("Gall, CBD expl., kviðsjá", "Gall, gallgangnaaðgerð", "Gall, kviðsjá", "Gall, kviðsjá, lengri", "Gall, opin  ")
 for (a in adgerdakort) {
   print(a)
   
@@ -172,8 +172,9 @@ for (a in adgerdakort) {
   ## í vinnslu
   
   
-  adkort[[a]] = data.frame(Dagsetning, LeguDagar, Laeknir, Kyn, Stofa, ASA, Aldur, GjorDagar,
-                           UndirTimi, AdgerdaTimi, LokaTimi, Skurdstofutimi)
+  adkort[[a]] = data.frame(Dagsetning, Skurdstofutimi, LeguDagar, GjorDagar, Laeknir, 
+                           Kyn, Stofa, ASA, Aldur, 
+                           UndirTimi, AdgerdaTimi, LokaTimi)
   
   
 }
