@@ -58,6 +58,8 @@ for (n in names(ORBIT)) {
 # Búum til data frame fyrir hvert kort með upplýsingum ...
 adkort = list()
 for (a in adgerdakort) {
+  
+  # Eiginleikar sem tengjast aðgerð
   i <- which(ORBIT$Aðgerðarkort == a)
   Dagsetning <- ymd(convertToDateTime(ORBIT$Dagsetning.aðgerðar[i]))
   InnASkurdgang <- Dagsetning + hm(ORBIT$Inn.á.skurðgang[i], quiet = TRUE)
@@ -70,11 +72,14 @@ for (a in adgerdakort) {
   SvaefingLykur <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Svæfingu.lýkur[i], quiet = TRUE))
   UtAfVoknun <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Út.af.vöknun[i], quiet = TRUE))
   UtAfSkurdgangi <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Út.af.skurðgangi[i], quiet = TRUE))
+  Sergrein <- ORBIT$Skurðsérgreinar[i]
+  Stofa <- ORBIT$`Aðgerða-stofa`[i]
   
   # Eiginleikar viðkomandi
   KT <- ORBIT$Kennitala[i]
   ASA <- ORBIT$ASA.flokkun[i]
   Age <- ORBIT$Age.at.operation[i]
+  Kyn <- ORBIT$Gender[i]
   
   # Teymi tengt ... mögulega væri hægt að nota komunúmer eða legunúmer (ekki í öllum röðum merkt)
   Laeknir = rep(NaN, length(Dagsetning))
@@ -112,6 +117,10 @@ for (a in adgerdakort) {
   LeguDagar = as.numeric(difftime(LeguUtskriftartimi,LeguInnritunartimi,units = "days"))
   
   # Gjörgæslutengt ...
+  
+  # Biðlistatengt ...
+  
+  
   
   adkort[[a]] = data.frame(Dagsetning, LeguDagar, Laeknir,
                            InnASkurdgang,InnAStofu,SvaefingHefst, 
