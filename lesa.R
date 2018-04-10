@@ -21,8 +21,9 @@ ORBIT = NULL
 SAGALEGUDEILD = NULL
 SAGAGJORGAESLA = NULL
 STARFSMENN = NULL
+BIDLISTI = NULL
 
-for (ar in seq(2015,2015)) {
+for (ar in seq(2010,2015)) {
   fname = paste0(filepath,as.character(ar),filename, sep="")
   print(fname)
 
@@ -42,9 +43,13 @@ for (ar in seq(2015,2015)) {
   M <- M[-nrow(M),] # remove last row, its not data
   STARFSMENN <- rbind(STARFSMENN,M)
   
+  B <- read.xlsx(fname, sheet = "Biðlistar", startRow = 5, colNames = TRUE)
+  B <- B[-nrow(B),] # remove last row, its not data
+  BIDLISTI <- rbind(BIDLISTI,B)
+  
   
 }
-rm(list = c("O", "S", "G", "M", "fname", "filepath", "filename"))
+rm(list = c("O", "S", "G", "M", "B", "fname", "filepath", "filename"))
 
 # Finna einkvæmt aðgerðakort
 adgerdakort = unique(ORBIT$Aðgerðarkort)
@@ -75,13 +80,27 @@ for (a in adgerdakort) {
   SvaefingLykur <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Svæfingu.lýkur[i], quiet = TRUE))
   UtAfVoknun <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Út.af.vöknun[i], quiet = TRUE))
   UtAfSkurdgangi <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Út.af.skurðgangi[i], quiet = TRUE))
+  
+  # Undirbúningstími
+  UndirTimi <- as.numeric(difftime(AdgerdHefst,InnAStofu, units = "mins"))
+  UndirTimi[is.na(UndirTimi)] <- as.numeric(difftime(AdgerdHefst[is.na(UndirTimi)],SvaefingHefst[is.na(UndirTimi)], units = "mins"))
+  AdgerdaTimi <- as.numeric(difftime(AdgerdLykur, AdgerdHefst, units = "mins"))
+  LokaTimi <- as.numeric(difftime(InnAVoknun, AdgerdLykur,units = "mins"))
+  LokaTimi[is.na(LokaTimi)] <- as.numeric(difftime(SvaefingLykur[is.na(LokaTimi)],AdgerdLykur[is.na(LokaTimi)],units="mins"))
+  LokaTimi <- pmax(LokaTimi,0) # hefur komið -ve timi ?!
+  Skurdstofutimi <- UndirTimi + Adgerdatimi + LokaTimi
+  
+  if ((sum(is.na(UndirTimi)) > 0) | (sum(is.na(AdgerdaTimi)) > 0) | (sum(is.na(LokaTimi)) > 0)) {
+    stop("just stopped because of NaN in timing")
+  }
+  
   Sergrein <- ORBIT$Skurðsérgreinar[i]
   Stofa <- ORBIT$`Aðgerða-stofa`[i]
   
   # Eiginleikar viðkomandi
   KT <- ORBIT$Kennitala[i]
   ASA <- ORBIT$ASA.flokkun[i]
-  Age <- ORBIT$Age.at.operation[i]
+  Aldur <- ORBIT$Age.at.operation[i]
   Kyn <- ORBIT$Gender[i]
   
   # Teymi tengt ... mögulega væri hægt að nota komunúmer eða legunúmer (ekki í öllum röðum merkt)
@@ -148,15 +167,16 @@ for (a in adgerdakort) {
   GjorDagar = as.numeric(difftime(GjorUtskriftartimi,GjorInnritunartimi,units = "days"))
   
   # Biðlistatengt ...
+  ## í vinnslu
   
   
-  
-  adkort[[a]] = data.frame(Dagsetning, LeguDagar, Laeknir, Kyn, Stofa, ASA, GjorDagar,
-                           InnASkurdgang,InnAStofu,SvaefingHefst, 
-                           AdgerdHefst,AdgerdLykur,SvaefingLykur,
-                           UtAfSkurdgangi,InnAVoknun,UtAfVoknun)
+  adkort[[a]] = data.frame(Dagsetning, LeguDagar, Laeknir, Kyn, Stofa, ASA, Aldur, GjorDagar,
+                           UndirTimi, AdgerdaTimi, LokaTimi, Skurdstofutimi)
   
   
 }
+
+# save data frames to file
+save(file="adkort.Rdata", list = c("adkort"))
   
 
