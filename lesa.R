@@ -58,6 +58,7 @@ for (n in names(ORBIT)) {
 # Búum til data frame fyrir hvert kort með upplýsingum ...
 adkort = list()
 for (a in adgerdakort) {
+  print(a)
   
   # Eiginleikar sem tengjast aðgerð
   i <- which(ORBIT$Aðgerðarkort == a)
@@ -91,16 +92,17 @@ for (a in adgerdakort) {
       Laeknir[k] = STARFSMENN$Heiti.starfsmanns[j]
     }
     else if (length(j) > 1) {
-      warning("Tveir aðalskurðlæknar?!")
-      print(j)
+      print("Tveir aðalskurðlæknar, nota fyrsta ...")
+      print(STARFSMENN$Heiti.starfsmanns[j])
+      Laeknir[k] = STARFSMENN$Heiti.starfsmanns[j[1]]
     }
   }
 
   # Legutengt ...
   LeguNumer <- ORBIT$`Legu-.eða.komunúmer`[i]
   # Athuga hvort viðkomandi haf farið á legudeild, legu númer 
-  LeguInnritunartimi = as_datetime(rep(NaN, length(LeguNumer)))
-  LeguUtskriftartimi = as_datetime(rep(NaN, length(LeguNumer)))
+  LeguInnritunartimi = as_datetime(rep(NaN, length(i)))
+  LeguUtskriftartimi = as_datetime(rep(NaN, length(i)))
   for (k in seq(1,length(LeguNumer))) {
     j = which(SAGALEGUDEILD$Legunúmer == LeguNumer[k])
     if (length(j) == 1) {  # default er NaN
@@ -117,12 +119,37 @@ for (a in adgerdakort) {
   LeguDagar = as.numeric(difftime(LeguUtskriftartimi,LeguInnritunartimi,units = "days"))
   
   # Gjörgæslutengt ...
+ 
+  LeguNumer <- ORBIT$`Legu-.eða.komunúmer`[i]
+  # Athuga hvort viðkomandi haf farið á legudeild, legu númer 
+  GjorInnritunartimi = as_datetime(rep(NaN, length(i)))
+  GjorUtskriftartimi = as_datetime(rep(NaN, length(i)))
+  for (k in seq(1,length(i))) {
+    j = which(SAGAGJORGAESLA$`Kennitala/gervikennitala` == KT[k])
+    if (length(j) == 1) {  # default er NaN
+      GjorInnritunartimi[k] =  ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j]))
+      GjorUtskriftartimi[k] =  ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.útskriftar.dvalar[j]))
+    }
+    else if (length(j) > 1) { # villutékk
+      print(ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j])))
+      print("margir möguleikar fyrir gjörgæslu... tek að sem kemur eftir aðgerð og innan við 48 tíma.")
+      # hvað skal gera, ef viðkomani er núþegar á gjörgæslu að bíða eftir þessa aðgerð ??? ATH.
+      tmptimi <- ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j]))
+      jj <- which((Dagsetning[k] < tmptimi) & (tmptimi < (Dagsetning[k] + hms('48:00:00') )))
+      if (length(jj)>0) {
+        j = j[jj[1]]
+        GjorInnritunartimi[k] =  ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j]))
+        GjorUtskriftartimi[k] =  ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.útskriftar.dvalar[j]))
+      }
+    }
+  }
+  GjorDagar = as.numeric(difftime(GjorUtskriftartimi,GjorInnritunartimi,units = "days"))
   
   # Biðlistatengt ...
   
   
   
-  adkort[[a]] = data.frame(Dagsetning, LeguDagar, Laeknir,
+  adkort[[a]] = data.frame(Dagsetning, LeguDagar, Laeknir, Kyn, Stofa, ASA,
                            InnASkurdgang,InnAStofu,SvaefingHefst, 
                            AdgerdHefst,AdgerdLykur,SvaefingLykur,
                            UtAfSkurdgangi,InnAVoknun,UtAfVoknun, LeguUtskriftartimi, 
