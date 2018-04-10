@@ -10,8 +10,6 @@ midnightrun <- function(starttime, endtime) {
   return(endtime)
 }
 
-
-
 setwd("~/projects/betrirodun")
 # Hvar eru skjölin og hvað heita þau?
 filepath = c("./gogn/")
@@ -22,6 +20,7 @@ filename = c("_með_aðgerðakortum.xlsx")
 ORBIT = NULL
 SAGALEGUDEILD = NULL
 SAGAGJORGAESLA = NULL
+STARFSMENN = NULL
 
 for (ar in seq(2015,2015)) {
   fname = paste0(filepath,as.character(ar),filename, sep="")
@@ -39,8 +38,13 @@ for (ar in seq(2015,2015)) {
   G <- G[-nrow(G),]                                     # remove last row, its not data
   SAGAGJORGAESLA = rbind(SAGAGJORGAESLA,G)
   
+  M <- read.xlsx(fname, sheet = "Skurðaðgerðir - starfsmenn", startRow = 2, colNames = TRUE)
+  M <- M[-nrow(M),] # remove last row, its not data
+  STARFSMENN <- rbind(STARFSMENN,M)
+  
+  
 }
-rm(list = c("O", "S", "G", "fname", "filepath", "filename"))
+rm(list = c("O", "S", "G", "M", "fname", "filepath", "filename"))
 
 # Finna einkvæmt aðgerðakort
 adgerdakort = unique(ORBIT$Aðgerðarkort)
@@ -68,38 +72,52 @@ for (a in adgerdakort) {
   UtAfSkurdgangi <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Út.af.skurðgangi[i], quiet = TRUE))
   
   # Eiginleikar viðkomandi
+  KT <- ORBIT$Kennitala[i]
   ASA <- ORBIT$ASA.flokkun[i]
   Age <- ORBIT$Age.at.operation[i]
   
-  # Teymi tengt ...
-  Laeknir <- NULL
-  
+  # Teymi tengt ... mögulega væri hægt að nota komunúmer eða legunúmer (ekki í öllum röðum merkt)
+  Laeknir = rep(NaN, length(Dagsetning))
+  suppressWarnings(warning("convertToDateTime"))
+  sDagsetning = ymd(convertToDateTime(STARFSMENN$Dagsetning))
+  for (k in seq(1,length(KT))) {
+    j = which(KT[k] == STARFSMENN$Kennitala & Dagsetning[k] == sDagsetning & STARFSMENN$Heiti.hlutverks.starfsm. == "Aðalskurðlæknir") 
+    if (length(j) == 1) { # default NaN
+      Laeknir[k] = STARFSMENN$Heiti.starfsmanns[j]
+    }
+    else if (length(j) > 1) {
+      warning("Tveir aðalskurðlæknar?!")
+      print(j)
+    }
+  }
+
   # Legutengt ...
   LeguNumer <- ORBIT$`Legu-.eða.komunúmer`[i]
   # Athuga hvort viðkomandi haf farið á legudeild, legu númer 
   LeguInnritunartimi = as_datetime(rep(NaN, length(LeguNumer)))
   LeguUtskriftartimi = as_datetime(rep(NaN, length(LeguNumer)))
   for (k in seq(1,length(LeguNumer))) {
-    i = which(SAGALEGUDEILD$Legunúmer == LeguNumer[k])
-    if (length(i) == 1) {  # default er NaN
-      LeguInnritunartimi[k] =  ymd(convertToDateTime(SAGALEGUDEILD$Dagsetning.innskriftar[i]))
-      LeguInnritunartimi[k] = LeguInnritunartimi[k] + hm(SAGALEGUDEILD$`Innritunar-tími`[i])
-      LeguUtskriftartimi[k] =  ymd(convertToDateTime(SAGALEGUDEILD$Dagsetning.útskriftar[i]))
-      LeguUtskriftartimi[k] = LeguUtskriftartimi[k] + hm(SAGALEGUDEILD$`Útskriftar-tími`[i])
+    j = which(SAGALEGUDEILD$Legunúmer == LeguNumer[k])
+    if (length(j) == 1) {  # default er NaN
+      LeguInnritunartimi[k] =  ymd(convertToDateTime(SAGALEGUDEILD$Dagsetning.innskriftar[j]))
+      LeguInnritunartimi[k] = LeguInnritunartimi[k] + hm(SAGALEGUDEILD$`Innritunar-tími`[j])
+      LeguUtskriftartimi[k] =  ymd(convertToDateTime(SAGALEGUDEILD$Dagsetning.útskriftar[j]))
+      LeguUtskriftartimi[k] = LeguUtskriftartimi[k] + hm(SAGALEGUDEILD$`Útskriftar-tími`[j])
     }
-    else if (length(i) > 1) { # villutékk
+    else if (length(j) > 1) { # villutékk
       warning("legunúmer we ekki einkvæmt!")
-      print(SAGALEGUDEILD$Dagsetning.innskriftar[i])
+      print(SAGALEGUDEILD$Dagsetning.innskriftar[j])
     }
   }
   LeguDagar = as.numeric(difftime(LeguUtskriftartimi,LeguInnritunartimi,units = "days"))
   
   # Gjörgæslutengt ...
   
-  adkort[[a]] = data.frame(Dagsetning, 
+  adkort[[a]] = data.frame(Dagsetning, LeguDagar, Laeknir,
                            InnASkurdgang,InnAStofu,SvaefingHefst, 
                            AdgerdHefst,AdgerdLykur,SvaefingLykur,
-                           UtAfSkurdgangi,InnAVoknun,UtAfVoknun, LeguUtskriftartimi, LeguInnritunartimi, Legudagar)
+                           UtAfSkurdgangi,InnAVoknun,UtAfVoknun, LeguUtskriftartimi, 
+                           LeguInnritunartimi)
   
   
 }
