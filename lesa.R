@@ -2,6 +2,8 @@
 require(openxlsx)
 require(lubridate) # https://www.r-statistics.com/2012/03/do-more-with-dates-and-times-in-r-with-lubridate-1-1-0/
 
+options(expressions = 5e5)
+
 # User defined function for correcting times that run after midnight
 midnightrun <- function(starttime, endtime) {
   idx <- (starttime > endtime)
@@ -23,7 +25,7 @@ SAGAGJORGAESLA = NULL
 STARFSMENN = NULL
 BIDLISTI = NULL
 
-for (ar in seq(2010,2010)) {
+for (ar in seq(2009,2018)) {
   fname = paste0(filepath,as.character(ar),filename, sep="")
   print(fname)
 
@@ -84,6 +86,9 @@ for (a in adgerdakort) {
   # Undirbúningstími
   UndirTimi <- as.numeric(difftime(AdgerdHefst,InnAStofu, units = "mins"))
   UndirTimi[is.na(UndirTimi)] <- as.numeric(difftime(AdgerdHefst[is.na(UndirTimi)],SvaefingHefst[is.na(UndirTimi)], units = "mins"))
+  UndirTimi[is.na(UndirTimi)] <- as.numeric(difftime(AdgerdHefst[is.na(UndirTimi)],InnASkurdgang[is.na(UndirTimi)], units = "mins"))
+  UndirTimi[is.na(UndirTimi)] <- 0 # some times are missing here ...
+  UndirTimi <- pmax(UndirTimi,0) # just in case
   AdgerdaTimi <- as.numeric(difftime(AdgerdLykur, AdgerdHefst, units = "mins"))
   LokaTimi <- as.numeric(difftime(InnAVoknun, AdgerdLykur,units = "mins"))
   LokaTimi[is.na(LokaTimi)] <- as.numeric(difftime(SvaefingLykur[is.na(LokaTimi)],AdgerdLykur[is.na(LokaTimi)],units="mins"))
