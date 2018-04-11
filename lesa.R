@@ -85,21 +85,21 @@ for (a in adgerdakort) {
   
   # Undirbúningstími
   UndirTimi <- as.numeric(difftime(AdgerdHefst,InnAStofu, units = "mins"))
-  UndirTimi[is.na(UndirTimi)] <- as.numeric(difftime(AdgerdHefst[is.na(UndirTimi)],SvaefingHefst[is.na(UndirTimi)], units = "mins"))
-  UndirTimi[is.na(UndirTimi)] <- as.numeric(difftime(AdgerdHefst[is.na(UndirTimi)],InnASkurdgang[is.na(UndirTimi)], units = "mins"))
-  UndirTimi[is.na(UndirTimi)] <- 0 # some times are missing here ...
-  UndirTimi <- pmax(UndirTimi,0) # just in case
+#  UndirTimi[is.na(UndirTimi)] <- as.numeric(difftime(AdgerdHefst[is.na(UndirTimi)],SvaefingHefst[is.na(UndirTimi)], units = "mins"))
+#  UndirTimi[is.na(UndirTimi)] <- as.numeric(difftime(AdgerdHefst[is.na(UndirTimi)],InnASkurdgang[is.na(UndirTimi)], units = "mins"))
+#  UndirTimi[is.na(UndirTimi)] <- 0 # some times are missing here ...
+#  UndirTimi <- pmax(UndirTimi,0) # just in case
   AdgerdaTimi <- as.numeric(difftime(AdgerdLykur, AdgerdHefst, units = "mins"))
   LokaTimi <- as.numeric(difftime(InnAVoknun, AdgerdLykur,units = "mins"))
-  LokaTimi[is.na(LokaTimi)] <- as.numeric(difftime(SvaefingLykur[is.na(LokaTimi)],AdgerdLykur[is.na(LokaTimi)],units="mins"))
-  LokaTimi[is.na(LokaTimi)] <- as.numeric(difftime(UtAfVoknun[is.na(LokaTimi)],AdgerdLykur[is.na(LokaTimi)],units="mins"))
-  LokaTimi[is.na(LokaTimi)] <- 0 # some times are missing here ...
-  LokaTimi <- pmax(LokaTimi,0) # hefur komið -ve timi ?!
+#  LokaTimi[is.na(LokaTimi)] <- as.numeric(difftime(SvaefingLykur[is.na(LokaTimi)],AdgerdLykur[is.na(LokaTimi)],units="mins"))
+#  LokaTimi[is.na(LokaTimi)] <- as.numeric(difftime(UtAfVoknun[is.na(LokaTimi)],AdgerdLykur[is.na(LokaTimi)],units="mins"))
+#  LokaTimi[is.na(LokaTimi)] <- 0 # some times are missing here ...
+#  LokaTimi <- pmax(LokaTimi,0) # hefur komið -ve timi ?!
   Skurdstofutimi <- UndirTimi + AdgerdaTimi + LokaTimi
   
-  if ((sum(is.na(UndirTimi)) > 0) | (sum(is.na(AdgerdaTimi)) > 0) | (sum(is.na(LokaTimi)) > 0)) {
-    stop("just stopped because of NaN in timing")
-  }
+#  if ((sum(is.na(UndirTimi)) > 0) | (sum(is.na(AdgerdaTimi)) > 0) | (sum(is.na(LokaTimi)) > 0)) {
+#    stop("just stopped because of NaN in timing")
+#  }
   
   Sergrein <- ORBIT$Skurðsérgreinar[i]
   Stofa <- ORBIT$`Aðgerða-stofa`[i]
