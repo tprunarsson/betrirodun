@@ -178,7 +178,7 @@ for (a in adgerdakort) {
   
   
   adkort[[a]] = data.frame(Dagsetning, Skurdstofutimi, LeguDagar, GjorDagar, Laeknir, 
-                           Kyn, Stofa, ASA, Aldur, 
+                           Kyn, Stofa, ASA, Aldur, Sergrein,
                            UndirTimi, AdgerdaTimi, LokaTimi)
   
   
