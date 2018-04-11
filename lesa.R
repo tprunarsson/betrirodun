@@ -28,7 +28,7 @@ BIDLISTI = NULL
 for (ar in seq(2009,2018)) {
   fname = paste0(filepath,as.character(ar),filename, sep="")
   print(fname)
-
+  
   O <- read.xlsx(fname, sheet = "Skurðaðgerðir - ORBIT", startRow = 2, colNames = TRUE)
   O <- O[-nrow(O),]                                     # remove last row, its not data
   ORBIT = rbind(ORBIT,O)
@@ -53,9 +53,6 @@ for (ar in seq(2009,2018)) {
 }
 rm(list = c("O", "S", "G", "M", "B", "fname", "filepath", "filename"))
 
-# Finna einkvæmt aðgerðakort
-adgerdakort = unique(ORBIT$Aðgerðarkort)
-
 # Varpa N/A í nan
 for (n in names(ORBIT)) {
   i = (ORBIT[n] == "N/A")
@@ -63,128 +60,120 @@ for (n in names(ORBIT)) {
 }
 
 # Búum til data frame fyrir hvert kort með upplýsingum ...
-adkort = list()
-# for debugging speedup using only Gall ...
-# adgerdakort = c("Gall, CBD expl., kviðsjá", "Gall, gallgangnaaðgerð", "Gall, kviðsjá", "Gall, kviðsjá, lengri", "Gall, opin  ")
-for (a in adgerdakort) {
-  print(a)
-  
-  # Eiginleikar sem tengjast aðgerð
-  i <- which(ORBIT$Aðgerðarkort == a)
-  Dagsetning <- ymd(convertToDateTime(ORBIT$Dagsetning.aðgerðar[i]))
-  InnASkurdgang <- Dagsetning + hm(ORBIT$Inn.á.skurðgang[i], quiet = TRUE)
-  InnAStofu <- Dagsetning + hm(ORBIT$Inn.á.stofu[i], quiet = TRUE)
-  SvaefingHefst <- Dagsetning + hm(ORBIT$Svæfing.hefst[i], quiet = TRUE)
-  AdgerdHefst <- Dagsetning + hm(ORBIT$Aðgerð.hefst[i], quiet = TRUE)
-  # Aðgerð getur farið yfir á næsta dag ... notum midnightrun til að athuga það og laga
-  AdgerdLykur <- midnightrun(AdgerdHefst, Dagsetning + hm(ORBIT$Aðgerð.lýkur[i], quiet = TRUE))
-  InnAVoknun <- midnightrun(AdgerdHefst, Dagsetning + hm(ORBIT$Inn.á.vöknun[i], quiet = TRUE))
-  SvaefingLykur <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Svæfingu.lýkur[i], quiet = TRUE))
-  UtAfVoknun <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Út.af.vöknun[i], quiet = TRUE))
-  UtAfSkurdgangi <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Út.af.skurðgangi[i], quiet = TRUE))
-  
-  # Undirbúningstími
-  UndirTimi <- as.numeric(difftime(AdgerdHefst,InnAStofu, units = "mins"))
+
+# Eiginleikar sem tengjast aðgerð
+Adgerdakort <- ORBIT$Aðgerðarkort
+Dagsetning <- ymd(convertToDateTime(ORBIT$Dagsetning.aðgerðar))
+InnASkurdgang <- Dagsetning + hm(ORBIT$Inn.á.skurðgang, quiet = TRUE)
+InnAStofu <- Dagsetning + hm(ORBIT$Inn.á.stofu, quiet = TRUE)
+SvaefingHefst <- Dagsetning + hm(ORBIT$Svæfing.hefst, quiet = TRUE)
+AdgerdHefst <- Dagsetning + hm(ORBIT$Aðgerð.hefst, quiet = TRUE)
+# Aðgerð getur farið yfir á næsta dag ... notum midnightrun til að athuga það og laga
+AdgerdLykur <- midnightrun(AdgerdHefst, Dagsetning + hm(ORBIT$Aðgerð.lýkur, quiet = TRUE))
+InnAVoknun <- midnightrun(AdgerdHefst, Dagsetning + hm(ORBIT$Inn.á.vöknun, quiet = TRUE))
+SvaefingLykur <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Svæfingu.lýkur, quiet = TRUE))
+UtAfVoknun <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Út.af.vöknun, quiet = TRUE))
+UtAfSkurdgangi <- midnightrun(AdgerdHefst,Dagsetning + hm(ORBIT$Út.af.skurðgangi, quiet = TRUE))
+
+# Undirbúningstími
+UndirTimi <- as.numeric(difftime(AdgerdHefst,InnAStofu, units = "mins"))
 #  UndirTimi[is.na(UndirTimi)] <- as.numeric(difftime(AdgerdHefst[is.na(UndirTimi)],SvaefingHefst[is.na(UndirTimi)], units = "mins"))
 #  UndirTimi[is.na(UndirTimi)] <- as.numeric(difftime(AdgerdHefst[is.na(UndirTimi)],InnASkurdgang[is.na(UndirTimi)], units = "mins"))
 #  UndirTimi[is.na(UndirTimi)] <- 0 # some times are missing here ...
 #  UndirTimi <- pmax(UndirTimi,0) # just in case
-  AdgerdaTimi <- as.numeric(difftime(AdgerdLykur, AdgerdHefst, units = "mins"))
-  LokaTimi <- as.numeric(difftime(InnAVoknun, AdgerdLykur,units = "mins"))
+AdgerdaTimi <- as.numeric(difftime(AdgerdLykur, AdgerdHefst, units = "mins"))
+LokaTimi <- as.numeric(difftime(InnAVoknun, AdgerdLykur,units = "mins"))
 #  LokaTimi[is.na(LokaTimi)] <- as.numeric(difftime(SvaefingLykur[is.na(LokaTimi)],AdgerdLykur[is.na(LokaTimi)],units="mins"))
 #  LokaTimi[is.na(LokaTimi)] <- as.numeric(difftime(UtAfVoknun[is.na(LokaTimi)],AdgerdLykur[is.na(LokaTimi)],units="mins"))
 #  LokaTimi[is.na(LokaTimi)] <- 0 # some times are missing here ...
 #  LokaTimi <- pmax(LokaTimi,0) # hefur komið -ve timi ?!
-  Skurdstofutimi <- UndirTimi + AdgerdaTimi + LokaTimi
-  
+Skurdstofutimi <- UndirTimi + AdgerdaTimi + LokaTimi
+
 #  if ((sum(is.na(UndirTimi)) > 0) | (sum(is.na(AdgerdaTimi)) > 0) | (sum(is.na(LokaTimi)) > 0)) {
 #    stop("just stopped because of NaN in timing")
 #  }
-  
-  Sergrein <- ORBIT$Skurðsérgreinar[i]
-  Stofa <- ORBIT$`Aðgerða-stofa`[i]
-  
-  # Eiginleikar viðkomandi
-  KT <- ORBIT$Kennitala[i]
-  ASA <- ORBIT$ASA.flokkun[i]
-  Aldur <- ORBIT$Age.at.operation[i]
-  Kyn <- ORBIT$Gender[i]
-  
-  # Teymi tengt ... mögulega væri hægt að nota komunúmer eða legunúmer (ekki í öllum röðum merkt)
-  Laeknir = rep(NaN, length(Dagsetning))
-  suppressWarnings(warning("convertToDateTime"))
-  sDagsetning = ymd(convertToDateTime(STARFSMENN$Dagsetning))
-  for (k in seq(1,length(KT))) {
-    j = which(KT[k] == STARFSMENN$Kennitala & Dagsetning[k] == sDagsetning & STARFSMENN$Heiti.hlutverks.starfsm. == "Aðalskurðlæknir") 
-    if (length(j) == 1) { # default NaN
-      Laeknir[k] = STARFSMENN$Heiti.starfsmanns[j]
-    }
-    else if (length(j) > 1) {
-  ##    print("Tveir aðalskurðlæknar, nota fyrsta ...")
-  ##    print(STARFSMENN$Heiti.starfsmanns[j])
-      Laeknir[k] = STARFSMENN$Heiti.starfsmanns[j[1]]
-    }
-  }
 
-  # Legutengt ...
-  LeguNumer <- ORBIT$`Legu-.eða.komunúmer`[i]
-  # Athuga hvort viðkomandi haf farið á legudeild, legu númer 
-  LeguInnritunartimi = as_datetime(rep(NaN, length(i)))
-  LeguUtskriftartimi = as_datetime(rep(NaN, length(i)))
-  for (k in seq(1,length(LeguNumer))) {
-    j = which(SAGALEGUDEILD$Legunúmer == LeguNumer[k])
-    if (length(j) == 1) {  # default er NaN
-      LeguInnritunartimi[k] =  ymd(convertToDateTime(SAGALEGUDEILD$Dagsetning.innskriftar[j]))
-      LeguInnritunartimi[k] = LeguInnritunartimi[k] + hm(SAGALEGUDEILD$`Innritunar-tími`[j])
-      LeguUtskriftartimi[k] =  ymd(convertToDateTime(SAGALEGUDEILD$Dagsetning.útskriftar[j]))
-      LeguUtskriftartimi[k] = LeguUtskriftartimi[k] + hm(SAGALEGUDEILD$`Útskriftar-tími`[j])
-    }
-    else if (length(j) > 1) { # villutékk
-      warning("legunúmer we ekki einkvæmt!")
-      print(SAGALEGUDEILD$Dagsetning.innskriftar[j])
-    }
+Sergrein <- ORBIT$Skurðsérgreinar
+Stofa <- ORBIT$`Aðgerða-stofa`
+
+# Eiginleikar viðkomandi
+ASA <- ORBIT$ASA.flokkun
+Aldur <- ORBIT$Age.at.operation
+Kyn <- ORBIT$Gender
+
+# Teymi tengt ... mögulega væri hægt að nota komunúmer eða legunúmer (ekki í öllum röðum merkt)
+Laeknir = rep(NaN, length(Dagsetning))
+suppressWarnings(warning("convertToDateTime"))
+sDagsetning = ymd(convertToDateTime(STARFSMENN$Dagsetning))
+for (k in seq(1,length(KT))) {
+  j = which(KT[k] == STARFSMENN$Kennitala & Dagsetning[k] == sDagsetning & STARFSMENN$Heiti.hlutverks.starfsm. == "Aðalskurðlæknir") 
+  if (length(j) == 1) { # default NaN
+    Laeknir[k] = STARFSMENN$Heiti.starfsmanns[j]
   }
-  LeguDagar = as.numeric(difftime(LeguUtskriftartimi,LeguInnritunartimi,units = "days"))
-  
-  # Gjörgæslutengt ...
- 
-  LeguNumer <- ORBIT$`Legu-.eða.komunúmer`[i]
-  # Athuga hvort viðkomandi haf farið á legudeild, legu númer 
-  GjorInnritunartimi = as_datetime(rep(NaN, length(i)))
-  GjorUtskriftartimi = as_datetime(rep(NaN, length(i)))
-  for (k in seq(1,length(i))) {
-    j = which(SAGAGJORGAESLA$`Kennitala/gervikennitala` == KT[k])
-    if (length(j) == 1) {  # default er NaN
+  else if (length(j) > 1) {
+    ##    print("Tveir aðalskurðlæknar, nota fyrsta ...")
+    ##    print(STARFSMENN$Heiti.starfsmanns[j])
+    Laeknir[k] = STARFSMENN$Heiti.starfsmanns[j[1]]
+  }
+}
+
+# Legutengt ...
+LeguNumer <- ORBIT$`Legu-.eða.komunúmer`
+# Athuga hvort viðkomandi haf farið á legudeild, legu númer 
+LeguInnritunartimi = as_datetime(rep(NaN, length(LeguNumer)))
+LeguUtskriftartimi = as_datetime(rep(NaN, length(LeguNumer)))
+for (k in seq(1,length(LeguNumer))) {
+  j = which(SAGALEGUDEILD$Legunúmer == LeguNumer[k])
+  if (length(j) == 1) {  # default er NaN
+    LeguInnritunartimi[k] =  ymd(convertToDateTime(SAGALEGUDEILD$Dagsetning.innskriftar[j]))
+    LeguInnritunartimi[k] = LeguInnritunartimi[k] + hm(SAGALEGUDEILD$`Innritunar-tími`[j])
+    LeguUtskriftartimi[k] =  ymd(convertToDateTime(SAGALEGUDEILD$Dagsetning.útskriftar[j]))
+    LeguUtskriftartimi[k] = LeguUtskriftartimi[k] + hm(SAGALEGUDEILD$`Útskriftar-tími`[j])
+  }
+  else if (length(j) > 1) { # villutékk
+    warning("legunúmer we ekki einkvæmt!")
+    print(SAGALEGUDEILD$Dagsetning.innskriftar[j])
+  }
+}
+LeguDagar = as.numeric(difftime(LeguUtskriftartimi,LeguInnritunartimi,units = "days"))
+
+# Gjörgæslutengt ...
+
+LeguNumer <- ORBIT$`Legu-.eða.komunúmer`
+# Athuga hvort viðkomandi haf farið á legudeild, legu númer 
+GjorInnritunartimi = as_datetime(rep(NaN, length(LeguNumer)))
+GjorUtskriftartimi = as_datetime(rep(NaN, length(LeguNumer)))
+for (k in seq(1,length(LeguNumer))) {
+  j = which(SAGAGJORGAESLA$`Kennitala/gervikennitala` == KT[k])
+  if (length(j) == 1) {  # default er NaN
+    GjorInnritunartimi[k] =  ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j]))
+    GjorUtskriftartimi[k] =  ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.útskriftar.dvalar[j]))
+  }
+  else if (length(j) > 1) { # villutékk
+    ##     print(ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j])))
+    ##     print("margir möguleikar fyrir gjörgæslu... tek að sem kemur eftir aðgerð og innan við 48 tíma.")
+    # hvað skal gera, ef viðkomani er núþegar á gjörgæslu að bíða eftir þessa aðgerð ??? ATH.
+    tmptimi <- ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j]))
+    jj <- which((Dagsetning[k] < tmptimi) & (tmptimi < (Dagsetning[k] + hms('48:00:00') )))
+    if (length(jj)>0) {
+      j = j[jj[1]]
       GjorInnritunartimi[k] =  ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j]))
       GjorUtskriftartimi[k] =  ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.útskriftar.dvalar[j]))
     }
-    else if (length(j) > 1) { # villutékk
-##     print(ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j])))
-##     print("margir möguleikar fyrir gjörgæslu... tek að sem kemur eftir aðgerð og innan við 48 tíma.")
-      # hvað skal gera, ef viðkomani er núþegar á gjörgæslu að bíða eftir þessa aðgerð ??? ATH.
-      tmptimi <- ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j]))
-      jj <- which((Dagsetning[k] < tmptimi) & (tmptimi < (Dagsetning[k] + hms('48:00:00') )))
-      if (length(jj)>0) {
-        j = j[jj[1]]
-        GjorInnritunartimi[k] =  ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j]))
-        GjorUtskriftartimi[k] =  ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.útskriftar.dvalar[j]))
-      }
-    }
   }
-  GjorDagar = as.numeric(difftime(GjorUtskriftartimi,GjorInnritunartimi,units = "days"))
-  
-  # Biðlistatengt ...
-  ## í vinnslu
-  
-  
-  adkort[[a]] = data.frame(Dagsetning, Skurdstofutimi, LeguDagar, GjorDagar, Laeknir, 
-                           Kyn, Stofa, ASA, Aldur, Sergrein,
-                           UndirTimi, AdgerdaTimi, LokaTimi)
-  
-  
 }
+GjorDagar = as.numeric(difftime(GjorUtskriftartimi,GjorInnritunartimi,units = "days"))
+
+# Biðlistatengt ...
+## í vinnslu
+
+
+adkort = data.frame(Dagsetning, Skurdstofutimi, LeguDagar, GjorDagar, Laeknir, 
+                    Kyn, Stofa, ASA, Aldur, Sergrein,
+                    UndirTimi, AdgerdaTimi, LokaTimi)
+
 
 # save data frames to file
 save(file="adkort.Rdata", list = c("adkort"))
-  
+
 
