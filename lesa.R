@@ -172,7 +172,6 @@ adkort = data.frame(Dagsetning, Adgerdakort, Skurdstofutimi, LeguDagar, GjorDaga
 
 
 # save data frames to file
-fname = paste0("adkort",as.character(ar),".Rdata", sep="")
 save(file="adkort.Rdata", list = c("adkort"))
 
 
