@@ -3,7 +3,7 @@ require(openxlsx)
 require(lubridate) # https://www.r-statistics.com/2012/03/do-more-with-dates-and-times-in-r-with-lubridate-1-1-0/
 
 options(expressions = 5e5)
-#rm(list=ls())
+rm(list=ls())
 
 # User defined function for correcting times that run after midnight
 midnightrun <- function(starttime, endtime) {
