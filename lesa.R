@@ -3,6 +3,7 @@ require(openxlsx)
 require(lubridate) # https://www.r-statistics.com/2012/03/do-more-with-dates-and-times-in-r-with-lubridate-1-1-0/
 
 options(expressions = 5e5)
+#rm(list=ls())
 
 # User defined function for correcting times that run after midnight
 midnightrun <- function(starttime, endtime) {
@@ -26,9 +27,10 @@ STARFSMENN = NULL
 BIDLISTI = NULL
 
 for (ar in seq(2009,2018)) {
+  
   fname = paste0(filepath,as.character(ar),filename, sep="")
   print(fname)
-  
+
   O <- read.xlsx(fname, sheet = "Skurðaðgerðir - ORBIT", startRow = 2, colNames = TRUE)
   O <- O[-nrow(O),]                                     # remove last row, its not data
   ORBIT = rbind(ORBIT,O)
@@ -49,8 +51,8 @@ for (ar in seq(2009,2018)) {
   B <- B[-nrow(B),] # remove last row, its not data
   BIDLISTI <- rbind(BIDLISTI,B)
   
-  
 }
+
 rm(list = c("O", "S", "G", "M", "B", "fname", "filepath", "filename"))
 
 # Varpa N/A í nan
@@ -97,57 +99,50 @@ Sergrein <- ORBIT$Skurðsérgreinar
 Stofa <- ORBIT$`Aðgerða-stofa`
 
 # Eiginleikar viðkomandi
+KT <- ORBIT$Kennitala
 ASA <- ORBIT$ASA.flokkun
 Aldur <- ORBIT$Age.at.operation
 Kyn <- ORBIT$Gender
 
 # Teymi tengt ... mögulega væri hægt að nota komunúmer eða legunúmer (ekki í öllum röðum merkt)
-Laeknir = rep(NaN, length(Dagsetning))
-suppressWarnings(warning("convertToDateTime"))
-sDagsetning = ymd(convertToDateTime(STARFSMENN$Dagsetning))
-for (k in seq(1,length(KT))) {
-  j = which(KT[k] == STARFSMENN$Kennitala & Dagsetning[k] == sDagsetning & STARFSMENN$Heiti.hlutverks.starfsm. == "Aðalskurðlæknir") 
-  if (length(j) == 1) { # default NaN
-    Laeknir[k] = STARFSMENN$Heiti.starfsmanns[j]
-  }
-  else if (length(j) > 1) {
-    ##    print("Tveir aðalskurðlæknar, nota fyrsta ...")
-    ##    print(STARFSMENN$Heiti.starfsmanns[j])
-    Laeknir[k] = STARFSMENN$Heiti.starfsmanns[j[1]]
-  }
-}
+Laeknir = ORBIT$Aðalskurðlæknir
 
 # Legutengt ...
 LeguNumer <- ORBIT$`Legu-.eða.komunúmer`
 # Athuga hvort viðkomandi haf farið á legudeild, legu númer 
-LeguInnritunartimi = as_datetime(rep(NaN, length(LeguNumer)))
-LeguUtskriftartimi = as_datetime(rep(NaN, length(LeguNumer)))
+LeguInnritunartimi <- rep(NaN, length(LeguNumer))
+LeguInnritun <- rep(NaN, length(LeguNumer))
+LeguUtskrift <- rep(NaN, length(LeguNumer))
+LeguUtskriftartimi <- rep(NaN, length(LeguNumer))
+
 for (k in seq(1,length(LeguNumer))) {
-  j = which(SAGALEGUDEILD$Legunúmer == LeguNumer[k])
+  j <- which(SAGALEGUDEILD$Legunúmer == LeguNumer[k])
   if (length(j) == 1) {  # default er NaN
-    LeguInnritunartimi[k] =  ymd(convertToDateTime(SAGALEGUDEILD$Dagsetning.innskriftar[j]))
-    LeguInnritunartimi[k] = LeguInnritunartimi[k] + hm(SAGALEGUDEILD$`Innritunar-tími`[j])
-    LeguUtskriftartimi[k] =  ymd(convertToDateTime(SAGALEGUDEILD$Dagsetning.útskriftar[j]))
-    LeguUtskriftartimi[k] = LeguUtskriftartimi[k] + hm(SAGALEGUDEILD$`Útskriftar-tími`[j])
+    LeguInnritun[k] <-  SAGALEGUDEILD$Dagsetning.innskriftar[j]
+    LeguInnritunartimi[k] <- SAGALEGUDEILD$`Innritunar-tími`[j]
+    LeguUtskrift[k] <-  SAGALEGUDEILD$Dagsetning.útskriftar[j]
+    LeguUtskriftartimi[k] <- SAGALEGUDEILD$`Útskriftar-tími`[j]
   }
   else if (length(j) > 1) { # villutékk
     warning("legunúmer we ekki einkvæmt!")
     print(SAGALEGUDEILD$Dagsetning.innskriftar[j])
   }
 }
-LeguDagar = as.numeric(difftime(LeguUtskriftartimi,LeguInnritunartimi,units = "days"))
+LeguInnritun <- ymd(convertToDateTime(LeguInnritun))+hm(LeguInnritunartimi)
+LeguUtskrift <- ymd(convertToDateTime(LeguUtskrift))+hm(LeguUtskriftartimi)
+LeguDagar <- as.numeric(difftime(LeguUtskrift,LeguInnritun,units = "days"))
 
 # Gjörgæslutengt ...
 
 LeguNumer <- ORBIT$`Legu-.eða.komunúmer`
 # Athuga hvort viðkomandi haf farið á legudeild, legu númer 
-GjorInnritunartimi = as_datetime(rep(NaN, length(LeguNumer)))
-GjorUtskriftartimi = as_datetime(rep(NaN, length(LeguNumer)))
+GjorInnritunartimi = rep(NaN, length(LeguNumer))
+GjorUtskriftartimi = rep(NaN, length(LeguNumer))
 for (k in seq(1,length(LeguNumer))) {
   j = which(SAGAGJORGAESLA$`Kennitala/gervikennitala` == KT[k])
   if (length(j) == 1) {  # default er NaN
-    GjorInnritunartimi[k] =  ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j]))
-    GjorUtskriftartimi[k] =  ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.útskriftar.dvalar[j]))
+    GjorInnritunartimi[k] =  SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j]
+    GjorUtskriftartimi[k] =  SAGAGJORGAESLA$Dagsetning.útskriftar.dvalar[j]
   }
   else if (length(j) > 1) { # villutékk
     ##     print(ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j])))
@@ -157,23 +152,27 @@ for (k in seq(1,length(LeguNumer))) {
     jj <- which((Dagsetning[k] < tmptimi) & (tmptimi < (Dagsetning[k] + hms('48:00:00') )))
     if (length(jj)>0) {
       j = j[jj[1]]
-      GjorInnritunartimi[k] =  ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j]))
-      GjorUtskriftartimi[k] =  ymd_hms(convertToDateTime(SAGAGJORGAESLA$Dagsetning.útskriftar.dvalar[j]))
+      GjorInnritunartimi[k] =  SAGAGJORGAESLA$Dagsetning.innskriftar.dvalar[j]
+      GjorUtskriftartimi[k] =  SAGAGJORGAESLA$Dagsetning.útskriftar.dvalar[j]
     }
   }
 }
+
+GjorInnritunartimi <- ymd_hms(convertToDateTime(GjorInnritunartimi))
+GjorUtskriftartimi <- ymd_hms(convertToDateTime(GjorUtskriftartimi))
 GjorDagar = as.numeric(difftime(GjorUtskriftartimi,GjorInnritunartimi,units = "days"))
 
 # Biðlistatengt ...
 ## í vinnslu
 
 
-adkort = data.frame(Dagsetning, Skurdstofutimi, LeguDagar, GjorDagar, Laeknir, 
+adkort = data.frame(Dagsetning, Adgerdakort, Skurdstofutimi, LeguDagar, GjorDagar, Laeknir, 
                     Kyn, Stofa, ASA, Aldur, Sergrein,
                     UndirTimi, AdgerdaTimi, LokaTimi)
 
 
 # save data frames to file
+fname = paste0("adkort",as.character(ar),".Rdata", sep="")
 save(file="adkort.Rdata", list = c("adkort"))
 
 
