@@ -132,6 +132,19 @@ LeguInnritun <- ymd(convertToDateTime(LeguInnritun))+hm(LeguInnritunartimi)
 LeguUtskrift <- ymd(convertToDateTime(LeguUtskrift))+hm(LeguUtskriftartimi)
 LeguDagar <- as.numeric(difftime(LeguUtskrift,LeguInnritun,units = "days"))
 
+# Reikna líkur á að vera n-daga
+
+ukort = unique(Adgerdakort)
+LeguLikur <- matrix(rep(0,length(ukort)*14), nrow = length(ukort))
+rownames(LeguLikur) <- ukort
+for (uk in ukort) {
+  idx = which(uk == Adgerdakort)
+  tbl <- table(cut(LeguDagar[idx],seq(0,14)))
+  if (sum(tbl) > 0)
+    tbl <- 1-cumsum(tbl / sum(tbl))
+  LeguLikur[uk,] <- tbl
+}
+
 # Gjörgæslutengt ...
 
 LeguNumer <- ORBIT$`Legu-.eða.komunúmer`
@@ -162,6 +175,17 @@ GjorInnritunartimi <- ymd_hms(convertToDateTime(GjorInnritunartimi))
 GjorUtskriftartimi <- ymd_hms(convertToDateTime(GjorUtskriftartimi))
 GjorDagar = as.numeric(difftime(GjorUtskriftartimi,GjorInnritunartimi,units = "days"))
 
+ukort = unique(Adgerdakort)
+GjorLikur <- matrix(rep(0,length(ukort)*14), nrow = length(ukort))
+rownames(GjorLikur) <- ukort
+for (uk in ukort) {
+  idx = which(uk == Adgerdakort)
+  tbl <- table(cut(GjorDagar[idx],seq(0,14)))
+  if (sum(tbl) > 0)
+    tbl <- 1-cumsum(tbl / sum(tbl))
+  GjorLikur[uk,] <- tbl
+}
+
 # Biðlistatengt ...
 ## í vinnslu
 
@@ -172,6 +196,6 @@ adkort = data.frame(Dagsetning, Adgerdakort, Skurdstofutimi, LeguDagar, GjorDaga
 
 
 # save data frames to file
-save(file="adkort.Rdata", list = c("adkort"))
+save(file="adkort.Rdata", list = c("adkort", "LeguLikur", "GjorLikur"))
 
 
