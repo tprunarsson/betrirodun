@@ -135,11 +135,13 @@ LeguDagar <- as.numeric(difftime(LeguUtskrift,LeguInnritun,units = "days"))
 # Reikna líkur á að vera n-daga
 
 ukort = unique(Adgerdakort)
-LeguLikur <- matrix(rep(0,length(ukort)*14), nrow = length(ukort))
-rownames(LeguLikur) <- ukort
+LeguLikur <- matrix(rep(0,length(ukort)*14), nrow = length(ukort)); rownames(LeguLikur) <- ukort
+LeguFjoldi <- matrix(rep(0,length(ukort)), nrow = length(ukort)); rownames(LeguFjoldi) <- ukort
 for (uk in ukort) {
   idx = which(uk == Adgerdakort)
-  tbl <- table(cut(LeguDagar[idx],seq(0,14)))
+  Dagar <- LeguDagar[idx]
+  tbl <- table(cut(Dagar,seq(0,14)))
+  LeguFjoldi[uk] <- sum(tbl)  
   if (sum(tbl) > 0)
     tbl <- 1-cumsum(tbl / sum(tbl))
   LeguLikur[uk,] <- tbl
@@ -178,9 +180,13 @@ GjorDagar = as.numeric(difftime(GjorUtskriftartimi,GjorInnritunartimi,units = "d
 ukort = unique(Adgerdakort)
 GjorLikur <- matrix(rep(0,length(ukort)*14), nrow = length(ukort))
 rownames(GjorLikur) <- ukort
+GjorFjoldi <- matrix(rep(0,length(ukort)), nrow = length(ukort))
+rownames(GjorFjoldi) <- ukort
 for (uk in ukort) {
-  idx = which(uk == Adgerdakort)
-  tbl <- table(cut(GjorDagar[idx],seq(0,14)))
+  idx <- which(uk == Adgerdakort)
+  Dagar <- GjorDagar[idx]
+  tbl <- table(cut(Dagar,seq(0,14)))
+  GjorFjoldi[uk] = sum(tbl)
   if (sum(tbl) > 0)
     tbl <- 1-cumsum(tbl / sum(tbl))
   GjorLikur[uk,] <- tbl
@@ -196,6 +202,6 @@ adkort = data.frame(Dagsetning, Adgerdakort, Skurdstofutimi, LeguDagar, GjorDaga
 
 
 # save data frames to file
-save(file="adkort.Rdata", list = c("adkort", "LeguLikur", "GjorLikur"))
+save(file="adkort.Rdata", list = c("adkort", "LeguLikur", "LeguFjoldi", "GjorLikur", "GjorFjoldi"))
 
 
