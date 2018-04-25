@@ -3,7 +3,7 @@ rm(list=ls())
 options(encoding = "UTF-8") 
 
 
-#TODO: Priority fasti 2 
+#TODO: Priority fasti 2
 
 #Importum pakka
 library(httr)
@@ -40,8 +40,10 @@ RodDagaNumer <- seq(1,by=1, length.out = numberOfDays)
 dfdays <- data.frame(RodDaga, RodDagaNumer)
 EndDate = max(RodDaga)
 
+Bidlisti$Location <- substr(Bidlisti$OrbitOperation.OperationSpecialty, start = 1, stop = 3)
 
-
+#Veljum hringbraut
+Bidlisti <- Bidlisti[Bidlisti$Location %in% c("Hb.","Kve","Þja"),]
 
 #Bidlisti fyrir planadar ICU
 Bidlisti_for_ICU = Bidlisti[Bidlisti$OrbitOperation.StatusName %in% c("Skipulagt"),]
@@ -62,8 +64,6 @@ Bidlisti = Bidlisti[Bidlisti$OrbitOperation.OperationSpecialty %in% c("Hb. Alm."
 Bidlisti = Bidlisti[Bidlisti$OrbitOperation.StatusName %in% c("Skipulagt"),]
 Bidlisti = Bidlisti[as.Date(Bidlisti$OrbitOperation.PlannedStartTime_Date) %in% RodDaga, ]
 
-#Remove surgeries planned to Kv Stofa 21
-Bidlisti = Bidlisti[!Bidlisti$OrbitOperation.OperationRoom %in% c("Kv. Stofa 21"),]
 
 
 #Rodum bidlistandum upp eftir sersviidi, laekni, priority af sjukling og svo skrasetningardagsetning a bidlista.
@@ -227,9 +227,9 @@ cat(";", file=fname, sep="\n", append = TRUE)
 cat("param T := \n",file=fname, sep=" ", append=TRUE)
 for(r in c(1:length(RodDaga))){
   Dagar <- wday(RodDaga)[r]
-    cat(paste0(r,'"','Hb. Stofa 3','"'),file=fname, sep = " ", append = TRUE)
+    cat(paste0(r,'\t','"','Hb. Stofa 3','"'),file=fname, sep = " ", append = TRUE)
   if(Dagar %in% c('2','3','4','5')){
-    cat(paste0("480"), file=fname, sep="\n", append=TRUE)}
+    cat(paste0(" 480"), file=fname, sep="\n", append=TRUE)}
   else if (Dagar %in% c('1','7')){
     cat(" 0", file=fname, sep="\n", append=TRUE)}
   else
@@ -237,9 +237,9 @@ for(r in c(1:length(RodDaga))){
 }
 for(r in c(1:length(RodDaga))){
   Dagar <- wday(RodDaga)[r]
-  cat(paste0(r,'"','Hb. Stofa 6','"'),file=fname, sep = " ", append = TRUE)
+  cat(paste0(r,'\t','"','Hb. Stofa 6','"'),file=fname, sep = " ", append = TRUE)
   if(Dagar %in% c('2','3','4','5')){
-    cat(paste0("480"), file=fname, sep="\n", append=TRUE)}
+    cat(paste0(" 480"), file=fname, sep="\n", append=TRUE)}
   else if (Dagar %in% c('1','7')){
     cat(" 0", file=fname, sep="\n", append=TRUE)}
   else
@@ -305,29 +305,8 @@ Adgerdardagur <- as.Date(Bidlisti$OrbitOperation.PlannedStartTime_Date)
 Stofa <- Bidlisti$OrbitOperation.OperationRoom
 
 
-
-
-#cat("param Xfix := \n", file=fname, sep=" ", append=TRUE)
-#for(i in c(1:length(Adgerdardagur))){
-#  #viljum ekki skoda gamlar adgerdir heldur bara thad sem er yfir dagsetningunni i dag
- # idx= which(!is.na(Adgerdardagur[i]) & Adgerdardagur[i]>=StartDate & Adgerdardagur[i]<=EndDate)
-  #kt=Kennitala[i]
-  #adgek = Adgerdarkort[i]
-  #lak = Laeknir[i]
-  #Dagur = Adgerdardagur[i]
-  #NumerDags = DateNameByNumber(Dagur)
-  #stofa = Stofa[i]
-  #if(length(idx)>0){
-  #  print(kt)
-  #  print(NumerDags)
-  #  cat(paste0(NumerDags,'\t','"',stofa,'"','\t','"',lak,'"','\t','"',kt,'-',adgek,'"','\t'," 1",'\n'),
-   #     file=fname, sep=" ", append=TRUE)
-  #}
-#}
-#cat(";", file=fname, sep="\n", append = TRUE)
-
-
-cat("param realschedule := \n", file=fname, sep=" ", append=TRUE)
+#Festum nidur adgerdadaga
+cat("param plannedSurgery := \n", file=fname, sep=" ", append=TRUE)
 for(i in c(1:length(Adgerdardagur))){
   #viljum ekki skoda gamlar adgerdir heldur bara thad sem er yfir dagsetningunni i dag
   idx= which(!is.na(Adgerdardagur[i]) & Adgerdardagur[i]>=StartDate & Adgerdardagur[i]<=EndDate)
@@ -339,7 +318,7 @@ for(i in c(1:length(Adgerdardagur))){
   stofa = Stofa[i]
   if(length(idx)>0){
     print(NumerDags)
-    cat(paste0('"',kt,'-',adgek,'"','\t',NumerDags,'\t','"',stofa,'"','\t','"',lak,'"'," 1",'\n'),
+    cat(paste0(NumerDags,'\t','"',kt,'-',adgek,'"','\t'," 1",'\n'),
         file=fname, sep=" ", append=TRUE)
   }
 }
@@ -373,7 +352,7 @@ for(i in c(1:length(Legubidlisti$OrbitOperation.optillfalle_id))){
   Dagur = as.Date(Legubidlisti$OrbitOperation.PlannedStartTime_Date[i])
   NumerDags = DateNameByNumber(Dagur)
   dagset <- 
-    cat(paste0('"',kt,'-', adgek,'"','\t',NumerDags,"\t","1","\n"), file=fname, sep= " ", append=TRUE)
+    cat(paste0(NumerDags,'\t','"',kt,'-', adgek,'"','\t',"\t","1","\n"), file=fname, sep= " ", append=TRUE)
 }
 cat(";", file=fname, sep="\n", append = TRUE)
 
@@ -552,6 +531,9 @@ cat(";", file=fname, sep="\n", append = TRUE)
 #}
 #cat(";", file=fname, sep="\n", append = TRUE)
 
+
+#-------------------------------------Tolfraedi gagna-----------------------------------------#
+#Annad skjal
 
 
 
