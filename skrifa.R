@@ -1,22 +1,23 @@
-#clean up the workspace memory
+#--- núllstilla og pakkar ---#
+
 rm(list=ls())
 options(encoding = "UTF-8") 
 
 
-#TODO: Priority fasti 2
-
-#Importum pakka
 library(httr)
 library(jsonlite)
 library(dplyr)
 library(lubridate)
 library(tictoc)
-#bradabirgda:
-load("Stuff.Rdata")
+lubridate::force_tz(Sys.time(), tzone = "UCT")
+lubridate::with_tz(Sys.time(), tzone = "UCT")
 
 
 #---------------------------------Biðlistaþjónusta----------------------------------------#
 tic()
+
+# Þangað til að þjónustan virkar
+load("Stuff.Rdata")
 
 # Lesa biðlista (nota þjónustu seinna)
 #get_base_parsed <- fromJSON(txt="getWaitingList.json", flatten = TRUE)
@@ -31,48 +32,61 @@ tic()
 #get_base_df$OrbitOperation.OperationCard_PreTime <- as.numeric(get_base_df$OrbitOperation.OperationCard_PreTime)
 
 
-#Buum til runu af dagsetningum - user defined.. 
-numberOfDays = 30
-#StartDate = as.Date(Sys.Date())
-StartDate = as.Date(c("2018-05-02"))
-RodDaga<- seq(StartDate, by=1, length.out = numberOfDays)
-RodDagaNumer <- seq(1,by=1, length.out = numberOfDays)
+# Búum til runu af dagsetningum - user defined.. 
+numberOfDays = 15
+# StartDate = as.Date(Sys.Date())
+StartDate = ymd(c("2018-04-30"),tz = "GMT")
+RodDagaStr = StartDate
+for (i in c(1:numberOfDays)) {
+  RodDagaStr = c(RodDagaStr, tail(RodDagaStr, n=1) + hours(24))
+}
+RodDaga<- seq(yday(StartDate), by=1, length.out = numberOfDays)
+RodDagaNumer <- seq(1, by=1, length.out = numberOfDays)
 dfdays <- data.frame(RodDaga, RodDagaNumer)
+StartDate <- yday(StartDate)
 EndDate = max(RodDaga)
 
-Bidlisti$Location <- substr(Bidlisti$OrbitOperation.OperationSpecialty, start = 1, stop = 3)
+# Búum til merki sem segir til um hvort um elective alm eða annað
+Merki <- rep(NA,nrow(Bidlisti))
 
-#Veljum hringbraut
-Bidlisti <- Bidlisti[Bidlisti$Location %in% c("Hb.","Kve","Þja"),]
+# Veljum aðeins úr biðlista það sem er á hringbraut er á Almennu, notar gjörgæslu og sameiginlegt legupláss
 
-#Bidlisti fyrir planadar ICU
-Bidlisti_for_ICU = Bidlisti[Bidlisti$OrbitOperation.StatusName %in% c("Skipulagt"),]
-Bidlisti_for_ICU = Bidlisti_for_ICU[Bidlisti_for_ICU$OrbitOperation.OvernightICU %in% c("1"),]
-Bidlisti_for_ICU = Bidlisti_for_ICU[!Bidlisti_for_ICU$OrbitOperation.OperationSpecialty %in% c("Hb. Alm."),]
-Bidlisti_for_ICU = Bidlisti_for_ICU[as.Date(Bidlisti_for_ICU$OrbitOperation.PlannedStartTime_Date) %in% RodDaga, ]
+# Tökum það sem er skipulagt á hringbraut! 
+idx1 <- substr(Bidlisti$OrbitOperation.OperationSpecialty, start = 1, stop = 3) %in% c("Hb.","Kve","Þja") &
+        yday(Bidlisti$OrbitOperation.PlannedStartTime_Date) %in% RodDaga &
+        Bidlisti$OrbitOperation.StatusName %in% c("Skipulagt")
+Merki[idx1] <- 1
 
-#Bidlisti adrir en Almenna sem nota sama legurrymi eda hafa planad inna thad
-Bidlisti_for_WARD = Bidlisti[!Bidlisti$OrbitOperation.OperationSpecialty %in% c("Hb. Alm."),]
-Bidlisti_for_WARD= Bidlisti_for_WARD[
-  Bidlisti_for_WARD$OrbitOperation.OperationDepartment %in% c("13EG Kviðarhols og þvagfæra      Sími 7500",
-                                                              "13G Alm                                 Sími 7360"),]
+# Aðgerðir með dagsetningu og þurfa gjörgæslu
+idx2 <- Bidlisti$OrbitOperation.OvernightICU %in% c("1") & 
+        yday(Bidlisti$OrbitOperation.PlannedStartTime_Date) %in% RodDaga
+Merki[idx2] <- 2
 
-Bidlisti_for_WARD = Bidlisti_for_WARD[as.Date(Bidlisti_for_WARD$OrbitOperation.PlannedStartTime_Date) %in% RodDaga, ]
+# Aðgerður sem eru með legu á samastað og Almenna...
+idx3 <- Bidlisti$OrbitOperation.OperationDepartment %in% c("13EG Kviðarhols og þvagfæra      Sími 7500",
+                                                            "13G Alm                                 Sími 7360") &
+        yday(Bidlisti$OrbitOperation.PlannedStartTime_Date) %in% RodDaga & 
+        !(Bidlisti$OrbitOperation.OperationSpecialty %in% c("Hb. Alm."))
+Merki[idx3] <- 3
 
+# Valaðgerðir sem við ætlum að raða, allar aðgerðir á biðlista eru valaðgerðir ?!
+idx4 <- Bidlisti$OrbitOperation.OperationSpecialty %in% c("Hb. Alm.") &
+        Bidlisti$OrbitOperation.OperationType %in% c("Valaðgerð") &
+        !is.na(Bidlisti$OrbitOperation.RequestedOperator_Name)
+Merki[idx4] <- 4
 
-Bidlisti = Bidlisti[Bidlisti$OrbitOperation.OperationSpecialty %in% c("Hb. Alm."),]
-Bidlisti = Bidlisti[Bidlisti$OrbitOperation.StatusName %in% c("Skipulagt"),]
-Bidlisti = Bidlisti[as.Date(Bidlisti$OrbitOperation.PlannedStartTime_Date) %in% RodDaga, ]
+# Tökum þetta allt saman
+Bidlisti$Merki <- Merki
+idx = idx1 | idx2 | idx3 | idx4
+Bidlisti <- Bidlisti[idx,]
 
-
-
-#Rodum bidlistandum upp eftir sersviidi, laekni, priority af sjukling og svo skrasetningardagsetning a bidlista.
-#Gert til ad numera sjuklinga sidar 
-
-Bidlisti <- arrange(Bidlisti, Bidlisti$OrbitOperation.OperationType, Bidlisti$OrbitOperation.OperationSpecialty ,
-                    Bidlisti$OrbitOperation.RequestedOperator_Name,Bidlisti$OrbitOperation.OperationPriority, 
-                    Bidlisti$OrbitOperation.RegistrDay)
-
+# DEBUG find OR that does not have a card
+ii = which(is.na(Bidlisti$OrbitOperation.OperationCard))
+if (length(ii)> 0) {
+  print("removing these patients from the list, they don't have a OR card!")
+  print(t(Bidlisti[ii,]))
+  Bidlisti <- Bidlisti[is.na(Bidlisti$OrbitOperation.OperationCard)== FALSE,]
+}
 
 toc()
 #----------------------------------Skrifum gögn--------------------------------------#
@@ -86,28 +100,17 @@ load("adkort.Rdata")
 #----------------------------------Debug---------------------------------------------#
 #Ef adgerdarkort finnst ekki i sogulegum gognum viljum vid henda tvi ut? Hvad er edlilegt?
 #Her er thaer adgerdir sem finnast ekki i sogulegum gognum
-MissingData = Bidlisti[!Bidlisti$OrbitOperation.OperationCard %in% adkort$Adgerdakort,]
+#MissingData = Bidlisti[!Bidlisti$OrbitOperation.OperationCard %in% adkort$Adgerdakort,]
 #Uppfaerdur bidlisti
-Bidlisti = Bidlisti[Bidlisti$OrbitOperation.OperationCard %in% adkort$Adgerdakort,]
+#Bidlisti = Bidlisti[Bidlisti$OrbitOperation.OperationCard %in% adkort$Adgerdakort,]
 
 #Lets remove this dummy ID? afhverju er thetta tharna?
-Bidlisti = subset(Bidlisti, !(Bidlisti$OrbitOperation.PatientSSN %in% c('0101010109')))
-
-#----------------------------------Foll---------------------------------------------#
-#Fall sem tekur inn dagsetningu og gefur ut tolu dags teas ef hann er 
-#Innan skipulagstima
-DateNameByNumber <- function(day) {
-  idx = which(day==dfdays$RodDaga)
-  if(length(idx)>0){
-    day <- dfdays$RodDagaNumer[idx]
-  }
-  return(day)
-}
+#Bidlisti = subset(Bidlisti, !(Bidlisti$OrbitOperation.PatientSSN %in% c('0101010109')))
 
 #--------------------------------LAEKNAR-----------------------------------------------#
-# Skrifum niður lækna - thad er e-d sem heitir lika Surgeon..- veit ekki alveg muninn?
-cat("set rSurgeon := \n",file=fname, sep=" ")
-Laeknir = unique(Bidlisti$OrbitOperation.RequestedOperator_Name)
+# Skrifum niður lækna, rSurgeon eru þeir með fasta daga
+cat("set Surgeon := \n",file=fname, sep=" ")
+Laeknir = unique(Bidlisti$OrbitOperation.RequestedOperator_Name[Bidlisti$Merki == 4])
 for (l in Laeknir) {
   if (is.na(l) == FALSE) {
     cat(paste0('"',l,'"\n'),file=fname, sep = " ", append = TRUE)
@@ -115,32 +118,15 @@ for (l in Laeknir) {
 }
 cat(";", file=fname, sep="\n", append = TRUE)
 
-#Skrifum nidur laekna
-cat("set Surgeon := \n",file=fname, sep=" ", append=TRUE)
-uLaeknir = unique(Bidlisti$OrbitOperation.RequestedOperator_Name)
-Laeknir = Bidlisti$OrbitOperation.RequestedOperator_Name
-for (l in uLaeknir) {
- # if (is.na(l) == FALSE) {
-    cat(paste0('"',l,'"\n'),file=fname, sep = " ", append = TRUE)
-#  }
-}
-cat(";", file=fname, sep="\n", append = TRUE)
-
-
-
-# Skrifum kortin - ath thau innihalda kt og kort
-Adgerdarkort = Bidlisti$OrbitOperation.OperationCard
-#Kennitolur sjuklinga
-Kennitala = Bidlisti$OrbitOperation.PatientSSN
-
-
 tic()
-cat("param Demand := \n", file = "kvid.dat", sep = "", append=TRUE)
-for (i in c(1:length(Bidlisti$OrbitOperation.PatientSSN))) {
-  adgek = Adgerdarkort[i]
-  kt = Kennitala[i]
-  lak = Laeknir[i]
-  cat(paste0('"',lak,'"','\t','"',kt,'-',adgek,'" ','1'), file=fname, sep = "\n", append=TRUE)
+cat("param Demand := \n", file = fname, sep = "", append=TRUE)
+for (i in c(1:nrow(Bidlisti))) {
+  if (Bidlisti$Merki[i] == 4) {
+    adgek = Bidlisti$OrbitOperation.OperationCard[i]
+    kt = Bidlisti$OrbitOperation.PatientSSN[i]
+    lak = Bidlisti$OrbitOperation.RequestedOperator_Name[i]
+    cat(paste0('"',lak,'"','\t','"',kt,'-',adgek,'" ','1'), file=fname, sep = "\n", append=TRUE)
+  }
 }
 cat(";", file = fname, sep = "\n", append=TRUE)
 toc()
@@ -148,30 +134,24 @@ toc()
 
 #---------------------------------DAGAR--------------------------------------------------#
 
-#Skilgreinum mengi daga
+# Skilgreinum mengi daga og heiti
 cat("set Day := \n",file=fname, sep=" ", append=TRUE)
 for (r in c(1:length(RodDaga))) {
-  #Dagar <- RodDaga[r]
   cat(paste0(r,'\n'),file=fname, sep = " ", append = TRUE)
 }
 cat(";", file=fname, sep="\n", append = TRUE)
+cat("param DayName := \n",file=fname, sep=" ", append=TRUE)
+for (r in c(1:length(RodDaga))) {
+  dagur <- dfdays$RodDagaNumer[r]
+  dagset <- RodDagaStr[r]
+  cat(paste0(dagur,"\t",'"',dagset,'"','\n'),file=fname, sep = " ", append = TRUE)
+}
+cat(";", file=fname, sep="\n", append = TRUE)
 
-#Ef vid viljum prenta ut nofn daga
-#cat("param DayName := \n",file=fname, sep=" ", append=TRUE)
-#for (r in c(1:length(RodDaga))) {
-#  dagur <- dfdays$RodDagaNumer[r]
-#  dagset <- dfdays$RodDaga[r]
-  #Dagar <- RodDaga[r]
-#  cat(paste0(dagur,"\t",'"',dagset,'"','\n'),file=fname, sep = " ", append = TRUE)
-#}
-#cat(";", file=fname, sep="\n", append = TRUE)
-
-
-#Merkjum helgar med binary breytum theas ef thad helgi tha 1 annars 0 
+# Merkjum helgar med binary breytum theas ef thad helgi tha 1 annars 0 
 cat("param isWeekend := \n",file=fname, sep=" ", append=TRUE)
 for(r in c(1:length(RodDaga))){
-  Dagar <- wday(RodDaga)[r]
-  #Dagsetningar <- RodDaga[r]
+  Dagar <- wday(RodDagaStr)[r]
   cat(paste0(r),file=fname, sep = " ", append = TRUE)
   if(Dagar==1 | Dagar==7)
     cat(" 1", file=fname, sep="\n", append=TRUE)
@@ -180,9 +160,6 @@ for(r in c(1:length(RodDaga))){
   
 }
 cat(";", file=fname, sep="\n", append = TRUE)
-
-
-
 
 #---------------------------------Skurdstofur--------------------------------------------#
 
@@ -195,26 +172,24 @@ cat(";", file=fname, sep="\n", append = TRUE)
 #Skrifum ut akut stofur - ekkert notad?
 #cat("set aRoom := HbStofa1 , HbStofa3 , HbStofa4 , HbStofa6;\n", file=fname, append=TRUE)
 
-
 #cat("\n", file=fname, append=TRUE)
 #cat("set aRoom:=\n", file=fname, append=TRUE)
 #cat(paste0('"',"Hb. Stofa 2",'"\n','"',"Hb. Stofa 5",'"\n'),file=fname, append=TRUE)
 #cat(";\n", file=fname, append=TRUE)
 
-Stofur = unique(Bidlisti$OrbitOperation.OperationRoom)
-#Hreinsum NA
+Stofur = unique(Bidlisti$OrbitOperation.OperationRoom[Bidlisti$Merki == 4])
+# Hreinsum út NA
 Stofur <- Stofur[!is.na(Stofur)]
 
 #Stofur sem vid notum fyrir elektifar adgerdir og viljum plana inn
 cat("set eRoom := \n",file=fname, sep=" ", append=TRUE)
 for(r in Stofur){
-  idx=which(r %in% c('Hb. Stofa 3','Hb. Stofa 6'))
+  idx = which(r %in% c('Hb. Stofa 3','Hb. Stofa 6'))
   if(length(idx)>0){
     cat(paste0('"',r,'"\n'),file=fname, sep=" ", append=TRUE)
   }
 }
 cat(";", file=fname, sep="\n", append = TRUE)
-
 
 cat("set aRoom := \n",file=fname, sep=" ", append=TRUE)
 for(r in Stofur){
@@ -222,11 +197,9 @@ for(r in Stofur){
 }
 cat(";", file=fname, sep="\n", append = TRUE)
 
-
-
 cat("param T := \n",file=fname, sep=" ", append=TRUE)
 for(r in c(1:length(RodDaga))){
-  Dagar <- wday(RodDaga)[r]
+  Dagar <- wday(RodDagaStr)[r]
     cat(paste0(r,'\t','"','Hb. Stofa 3','"'),file=fname, sep = " ", append = TRUE)
   if(Dagar %in% c('2','3','4','5')){
     cat(paste0(" 480"), file=fname, sep="\n", append=TRUE)}
@@ -236,7 +209,7 @@ for(r in c(1:length(RodDaga))){
     cat(" 330", file=fname, sep="\n", append=TRUE)
 }
 for(r in c(1:length(RodDaga))){
-  Dagar <- wday(RodDaga)[r]
+  Dagar <- wday(RodDagaStr)[r]
   cat(paste0(r,'\t','"','Hb. Stofa 6','"'),file=fname, sep = " ", append = TRUE)
   if(Dagar %in% c('2','3','4','5')){
     cat(paste0(" 480"), file=fname, sep="\n", append=TRUE)}
@@ -248,16 +221,31 @@ for(r in c(1:length(RodDaga))){
 cat(";", file=fname, sep="\n", append = TRUE)
 
 
-
-
 #---------------------------------VAKTIR--------------------------------------------#
+cat("set rSurgeon := ",file=fname,sep="\n", append=TRUE)
+cat('"Tómas Jónsson"', file=fname, sep="\n", append=TRUE)
+cat('"Sigurður Blöndal"', file=fname, sep="\n", append=TRUE)
+cat('"Elsa Björk Valsdóttir"', file=fname, sep="\n", append=TRUE)
+cat('"Kristín Huld Haraldsdóttir"', file=fname, sep="\n", append=TRUE)
+cat('"Jórunn Atladóttir"', file=fname, sep="\n", append=TRUE)
+cat('"Guðjón Birgisson"', file=fname, sep="\n", append=TRUE)
+cat('"Helgi Kjartan Sigurðsson"', file=fname, sep="\n", append=TRUE)
+cat('"Aðalsteinn Arnarson"', file=fname, sep="\n", append=TRUE)
+cat('"Höskuldur Kristvinsson"', file=fname, sep="\n", append=TRUE)
+cat('"Páll Helgi Möller"', file=fname, sep="\n", append=TRUE)
+cat(";",file=fname, sep = "\n", append=TRUE)
+
 cat("param Roster := ",file=fname,sep="\n", append=TRUE)
 for(i in c(1:length(RodDaga))){
-  DagarNum <- wday(RodDaga)[i]
-  Dagsetning <- RodDaga[i] 
-  NumerDags <- DateNameByNumber(Dagsetning)
-  #print(DagaNr)
-  #print(Dagsetning)
+  DagarNum <- wday(RodDagaStr)[i]
+  Dagsetning <- RodDaga[i]
+  idxx = which(Dagsetning==dfdays$RodDaga)
+  if(length(idxx)>0){
+    NumerDags <- as.character(dfdays$RodDagaNumer[idxx])
+  }
+  else {
+    stop("dags error")
+  }
   if(DagarNum==2){
     cat(paste0(NumerDags,'\t','"',"Tómas Jónsson",'"','\t','"',"Hb. Stofa 6",'"','\t','1\n'), file=fname, sep=" ", append=TRUE)
     cat(paste0(NumerDags,'\t','"',"Sigurður Blöndal",'"','\t','"',"Hb. Stofa 3",'"','\t','1\n'), file=fname, sep=" ", append=TRUE)
@@ -285,108 +273,108 @@ cat(";",file=fname, sep = "\n", append=TRUE)
 
 #---------------------------------Sjuklingar og kort --------------------------------------#
 
-# Skrifum kortin - ath thau innihalda kt og kort
-Adgerdarkort = Bidlisti$OrbitOperation.OperationCard
-#Kennitolur sjuklinga
-Kennitala = Bidlisti$OrbitOperation.PatientSSN
-
 cat("set eCode := \n", file=fname, sep=" ", append=TRUE)
-for(a in c(1:length(Adgerdarkort))){
-  kt = Kennitala[a]
-  adgek = Adgerdarkort[a]
-  idx = which(Bidlisti$OrbitOperation.StatusName %in% c('Skipulagt'))
-  cat(paste0('"',kt,'-',adgek,'"\n'), file=fname, sep=" ", append=TRUE)
+for(i in c(1:nrow(Bidlisti))){
+  if (Bidlisti$Merki[i] == 4) {
+    kt = Bidlisti$OrbitOperation.PatientSSN[i]
+    adgek = Bidlisti$OrbitOperation.OperationCard[i]
+    idx = which(Bidlisti$OrbitOperation.StatusName %in% c('Skipulagt'))
+    cat(paste0('"',kt,'-',adgek,'"\n'), file=fname, sep=" ", append=TRUE)
+  }
 }
 cat(";", file=fname, sep="\n", append = TRUE)
-
-
-#Skrifum planadar adgerdir i stofur og tima utfra bidlista
-Adgerdardagur <- as.Date(Bidlisti$OrbitOperation.PlannedStartTime_Date)
-Stofa <- Bidlisti$OrbitOperation.OperationRoom
-
-
-#Festum nidur adgerdadaga
-cat("param plannedSurgery := \n", file=fname, sep=" ", append=TRUE)
-for(i in c(1:length(Adgerdardagur))){
-  #viljum ekki skoda gamlar adgerdir heldur bara thad sem er yfir dagsetningunni i dag
-  idx= which(!is.na(Adgerdardagur[i]) & Adgerdardagur[i]>=StartDate & Adgerdardagur[i]<=EndDate)
-  kt=Kennitala[i]
-  adgek = Adgerdarkort[i]
-  lak = Laeknir[i]
-  Dagur = Adgerdardagur[i]
-  NumerDags = DateNameByNumber(Dagur)
-  stofa = Stofa[i]
-  if(length(idx)>0){
-    print(NumerDags)
-    cat(paste0(NumerDags,'\t','"',kt,'-',adgek,'"','\t'," 1",'\n'),
-        file=fname, sep=" ", append=TRUE)
+cat("set oCode := \n", file=fname, sep=" ", append=TRUE)
+for(i in c(1:nrow(Bidlisti))){
+  if ((Bidlisti$Merki[i] == 2) | (Bidlisti$Merki[i] == 3)) {
+    kt = Bidlisti$OrbitOperation.PatientSSN[i]
+    adgek = Bidlisti$OrbitOperation.OperationCard[i]
+    cat(paste0('"',kt,'-', adgek,'"',"\n"), file=fname, sep= " ", append=TRUE)
   }
 }
 cat(";", file=fname, sep="\n", append = TRUE)
 
+# Skrifum planadar adgerdir i stofur og tima utfra bidlista
 
+# Festum nidur adgerdadaga
+cat("param plannedSurgery := \n", file=fname, sep=" ", append=TRUE)
+for(i in c(1:nrow(Bidlisti))){
+  if (Bidlisti$Merki[i] == 4) {
+    # viljum ekki skoda gamlar adgerdir heldur bara thad sem er yfir dagsetningunni i dag
+    idx = which(!is.na(Bidlisti$OrbitOperation.PlannedStartTime_Date[i]) & yday(Bidlisti$OrbitOperation.PlannedStartTime_Date[i])>=StartDate & yday(Bidlisti$OrbitOperation.PlannedStartTime_Date[i])<=EndDate)
+    if(length(idx)>0) {
+      kt = Bidlisti$OrbitOperation.PatientSSN[i]
+      adgek = Bidlisti$OrbitOperation.OperationCard[i]
+      lak = Bidlisti$OrbitOperation.RequestedOperator_Name[i]
+      Dagur = yday(Bidlisti$OrbitOperation.PlannedStartTime_Date[i])
+      idxx = which(Dagur==dfdays$RodDaga)
+      if(length(idxx)>0){
+        NumerDags <- dfdays$RodDagaNumer[idxx]
+      }
+      else {
+        stop("day error")
+      }
+      stofa = Bidlisti$OrbitOperation.OperationRoom[i]
+      print(NumerDags)
+      cat(paste0(NumerDags,'\t','"',kt,'-',adgek,'"','\t'," 1",'\n'),
+          file=fname, sep=" ", append=TRUE)
+    }
+  }
+}
+cat(";", file=fname, sep="\n", append = TRUE)
 
 
 #---------------------------------WARD og ICU -------------------------------------------#
 
 
-#Sameinum bidlista fyrir ward og icu
-Legubidlisti <-  rbind(Bidlisti_for_ICU, Bidlisti_for_WARD)
-#Sameinum bidlista fyrir alla
-AllirBidlisti <- rbind(Bidlisti, Bidlisti_for_ICU, Bidlisti_for_WARD)
-
-
-cat("set oCode := \n", file=fname, sep=" ", append=TRUE)
-for(i in c(1:length(Legubidlisti$OrbitOperation.optillfalle_id))){
-  kt = Legubidlisti$OrbitOperation.PatientSSN[i]
-  adgek = Legubidlisti$OrbitOperation.OperationCard[i]
-  cat(paste0('"',kt,'-', adgek,'"',"\n"), file=fname, sep= " ", append=TRUE)
-}
-cat(";", file=fname, sep="\n", append = TRUE)
-
-
 cat("param OtherSurgeries:=\n", file=fname, sep=" ", append=TRUE)
-for(i in c(1:length(Legubidlisti$OrbitOperation.optillfalle_id))){
-  kt = Legubidlisti$OrbitOperation.PatientSSN[i]
-  adgek = Legubidlisti$OrbitOperation.OperationCard[i]
-  Dagur = as.Date(Legubidlisti$OrbitOperation.PlannedStartTime_Date[i])
-  NumerDags = DateNameByNumber(Dagur)
-  dagset <- 
-    cat(paste0(NumerDags,'\t','"',kt,'-', adgek,'"','\t',"\t","1","\n"), file=fname, sep= " ", append=TRUE)
+for(i in c(1:nrow(Bidlisti))){
+  if ((Bidlisti$Merki[i] == 2) | (Bidlisti$Merki[i] == 3)) {
+    kt = Bidlisti$OrbitOperation.PatientSSN[i]
+    adgek = Bidlisti$OrbitOperation.OperationCard[i]
+    Dagur = yday(Bidlisti$OrbitOperation.PlannedStartTime_Date[i])
+    idxx = which(Dagur==dfdays$RodDaga)
+    if(length(idxx)>0){
+      NumerDags <- dfdays$RodDagaNumer[idxx]
+      cat(paste0(NumerDags,'\t','"',kt,'-', adgek,'"','\t',"\t","1","\n"), file=fname, sep= " ", append=TRUE)
+    }
+    #else {
+    #  stop("day error 2")
+    #}
+  }
 }
 cat(";", file=fname, sep="\n", append = TRUE)
 
-YfirNottAICU = AllirBidlisti$OrbitOperation.OvernightICU
+
 cat("param gotoICU := \n", file=fname, sep=" ", append=TRUE)
-for(i in c(1:length(YfirNottAICU))){
-  kt = AllirBidlisti$OrbitOperation.PatientSSN[i]
-  adgek = AllirBidlisti$OrbitOperation.OperationCard[i]
-  icu = YfirNottAICU[i]
-  cat(paste0('"',kt,'-',adgek,'"',"\t", icu,"\n"), file=fname, sep=" ", append=TRUE)
+for (i in c(1:nrow(Bidlisti))) {
+  icu = Bidlisti$OrbitOperation.OvernightICU[i]
+  if (icu == 1) {
+    kt = Bidlisti$OrbitOperation.PatientSSN[i]
+    adgek = Bidlisti$OrbitOperation.OperationCard[i]
+    cat(paste0('"',kt,'-',adgek,'"',"\t", icu,"\n"), file=fname, sep=" ", append=TRUE)
+  }
 }
 cat(";", file=fname, sep="\n", append = TRUE)
-
-
 
 #Skrifum ut ef sjuklingur tharf legu ad halda eftir adgerd utfra bidlista
-Lega = AllirBidlisti$OrbitOperation.PatientAdmission
-cat("param gotoWard := ", file = "kvid.dat", sep = "\n", append=TRUE)
-for(i in c(1:length(Lega))){
-  lega = Lega[i]
-  deild = AllirBidlisti$OrbitOperation.OperationDepartment[i]
-  adge = AllirBidlisti$OrbitOperation.OperationCard[i]
-  kt = AllirBidlisti$OrbitOperation.PatientSSN[i]
-  if(lega %in% c("Legudeild") & deild %in% c("13EG Kviðarhols og þvagfæra      Sími 7500",
+cat("param gotoWard := ", file = fname, sep = "\n", append=TRUE)
+for (i in c(1:nrow(Bidlisti))) {
+  lega = Bidlisti$OrbitOperation.PatientAdmission[i]
+  deild = Bidlisti$OrbitOperation.OperationDepartment[i]
+  adge = Bidlisti$OrbitOperation.OperationCard[i]
+  kt = Bidlisti$OrbitOperation.PatientSSN[i]
+  if (lega %in% c("Legudeild") & deild %in% c("13EG Kviðarhols og þvagfæra      Sími 7500",
                                              "13G Alm                                 Sími 7360") ){
     cat(paste0('"',kt,'-',adge,'"',' 1\n'), file=fname, append=TRUE)
   }
   else if (lega %in% c("Dagdeild")){
-    cat(paste0('"',kt,'-',adge,'"',' 0\n'), file=fname, append=TRUE)
+#    cat(paste0('"',kt,'-',adge,'"',' 0\n'), file=fname, append=TRUE)
   }
   else{
     #Thetta tilfelli veit eg ekki hvernig a ad tulka NaN fyrir hvort lega eda ekki?
     #Thurfum ad komast ad tvi
-    cat(paste0('"',kt,'-',adge,'"',' 0\n'), file=fname, append=TRUE)
+    print("NaN í legu?")
+ #   cat(paste0('"',kt,'-',adge,'"',' 0\n'), file=fname, append=TRUE)
   }
 }
 cat(";", file=fname, sep="\n", append = TRUE)
@@ -397,17 +385,27 @@ cat("param expectedWard : ",file=fname,sep="\n", append = TRUE)
 for (j in c(1:7))
   cat(sprintf(" %d ", j), file=fname, sep = "", append=TRUE)
 cat(":=",file=fname,sep="\n", append=TRUE)
-for (i in c(1:length(AllirBidlisti$OrbitOperation.optillfalle_id))) {
-  #We must also check if the operation card exist in our data
-  idx=which(Lega[i]==c("Legudeild") & Adgerdarkort[i] %in% adkort$Adgerdakort &AllirBidlisti$OrbitOperation.OperationDepartment[i] %in% c("13EG Kviðarhols og þvagfæra      Sími 7500", "13G Alm                                 Sími 7360"))
-  if(length(idx)>0){
-    adge=AllirBidlisti$OrbitOperation.OperationCard[i]
-    kt = AllirBidlisti$OrbitOperation.PatientSSN[i]
-    cat(paste0('"',kt,'-',adge,'"','\t',' 1'),file=fname ,sep="", append=TRUE)
-    for (j in c(1:6))
-      cat(sprintf(" %.3f ",LeguLikur[adge,j]), file=fname, sep =
-            "", append=TRUE)
-    cat(" ",file=fname,sep="\n", append=TRUE)
+for (i in c(1:nrow(Bidlisti))) {
+  if (Bidlisti$Merki[i] > 1) {
+    #We must also check if the operation card exist in our data
+    idx = which(Bidlisti$OrbitOperation.PatientAdmission[i]==c("Legudeild") & Bidlisti$OrbitOperation.OperationCard[i] %in% adkort$Adgerdakort) 
+    # & Bidlisti$OrbitOperation.OperationDepartment[i] %in% c("13EG Kviðarhols og þvagfæra      Sími 7500", "13G Alm                                 Sími 7360"))
+    if(length(idx)>0){
+      adge = Bidlisti$OrbitOperation.OperationCard[i]
+      kt = Bidlisti$OrbitOperation.PatientSSN[i]
+      cat(paste0('"',kt,'-',adge,'"','\t',' 1'),file=fname ,sep="", append=TRUE)
+      for (j in c(1:6))
+        cat(sprintf(" %.3f ",LeguLikur[adge,j]), file=fname, sep = "", append=TRUE)
+      cat(" ",file=fname,sep="\n", append=TRUE)
+    }
+    else {
+      adge = Bidlisti$OrbitOperation.OperationCard[i]
+      kt = Bidlisti$OrbitOperation.PatientSSN[i]
+      cat(paste0('"',kt,'-',adge,'"','\t',' 1'),file=fname ,sep="", append=TRUE)
+      for (j in c(1:6))
+        cat(sprintf(" %.3f ",0.5^j), file=fname, sep = "", append=TRUE)
+      cat(" ",file=fname,sep="\n", append=TRUE)
+    }
   }
 }
 cat(";",file=fname,sep="\n", append=TRUE)
@@ -419,17 +417,29 @@ for (j in c(1:7))
   cat(sprintf(" %d ", j), file=fname, sep = "", append=TRUE)
 cat(":=",file=fname,sep="\n", append=TRUE)
 
-for (i in c(1:length(AllirBidlisti$OrbitOperation.optillfalle_id))) {
-  idx=which(YfirNottAICU[i]==c("1") & AllirBidlisti$OrbitOperation.OperationCard[i] %in% adkort$Adgerdakort)
-  if(length(idx)>0){
-    adge=AllirBidlisti$OrbitOperation.OperationCard[i]
-    kt = AllirBidlisti$OrbitOperation.PatientSSN[i]
-    cat(paste0('"',kt,'-',adge,'"','\t',' 1'),file=fname ,sep="", append=TRUE)
-    #cat(sprintf(" o%03d_%s 1",i,case), file="kvid.dat", sep = "", append=TRUE)
-    for (j in c(1:6))
-      cat(sprintf(" %.3f ",GjorLikur[adge,j]), file="kvid.dat", sep =
-            "", append=TRUE)
-    cat(" ",file=fname,sep="\n", append=TRUE)
+for (i in c(1:nrow(Bidlisti))) {
+  if (Bidlisti$Merki[i] > 1) {
+    idx = which(Bidlisti$OrbitOperation.OvernightICU[i]==c("1") & Bidlisti$OrbitOperation.OperationCard[i] %in% adkort$Adgerdakort)
+    if(length(idx)>0){
+      adge=Bidlisti$OrbitOperation.OperationCard[i]
+      kt = Bidlisti$OrbitOperation.PatientSSN[i]
+      cat(paste0('"',kt,'-',adge,'"','\t',' 1'),file=fname ,sep="", append=TRUE)
+      #cat(sprintf(" o%03d_%s 1",i,case), file=fname, sep = "", append=TRUE)
+      for (j in c(1:6))
+        cat(sprintf(" %.3f ",GjorLikur[adge,j]), file=fname, sep =
+              "", append=TRUE)
+      cat(" ",file=fname,sep="\n", append=TRUE)
+    }
+    else {
+      adge=Bidlisti$OrbitOperation.OperationCard[i]
+      kt = Bidlisti$OrbitOperation.PatientSSN[i]
+      cat(paste0('"',kt,'-',adge,'"','\t',' 1'),file=fname ,sep="", append=TRUE)
+      #cat(sprintf(" o%03d_%s 1",i,case), file=fname, sep = "", append=TRUE)
+      for (j in c(1:6))
+        cat(sprintf(" %.3f ",0), file=fname, sep =
+              "", append=TRUE)
+      cat(" ",file=fname,sep="\n", append=TRUE)
+    }
   }
 }
 cat(";",file=fname,sep="\n", append=TRUE)
@@ -439,101 +449,67 @@ cat(";",file=fname,sep="\n", append=TRUE)
 
 #Skrifum ut fjolda scenarios
 scenarios=10
-cat("param numscenarios :=",scenarios,";", file = "kvid.dat", sep = "\n", append=TRUE)
+cat("param numscenarios :=",scenarios,";", file = fname, sep = "\n", append=TRUE)
 
 #Eg set her skilyrdid ad adgerdarkortid turfi ad vera til i gognunum..
-cat("param SurgeryTime := ",file="kvid.dat",sep="\n", append=TRUE)
+cat("param SurgeryTime := ",file=fname,sep="\n", append=TRUE)
 Scenario = c(1:scenarios)
-for (i in c(1:length(Adgerdarkort))){
-  adge = Adgerdarkort[i] #ur bidlista
-  laeknir = Laeknir[i] #ur bidlista
-  kt = Kennitala[i] #ur bidlista
-  idx = which(adkort$Adgerdakort==adge & adkort$Laeknir==laeknir
+for (i in c(1:nrow(Bidlisti))){
+  if (Bidlisti$Merki[i] == 4) {
+    adge = Bidlisti$OrbitOperation.OperationCard[i] #ur bidlista
+    laeknir = Bidlisti$OrbitOperation.RequestedOperator_Name[i] #ur bidlista
+    kt = Bidlisti$OrbitOperation.PatientSSN[i] #ur bidlista
+    idx = which(adkort$Adgerdakort==adge & adkort$Laeknir==laeknir
               & adkort$AdgerdaTimi<=24*60 & adkort$AdgerdaTimi>0 &adge %in% adkort$Adgerdakort
               & adkort$Skurdstofutimi>0)
-  if(length(idx)<10){
-    #Notum tima  annara ef thad finnst ekki annar 
-    idx = which(adkort$Adgerdakort==adge &
+    if(length(idx)<10){
+      # Notum tima  annara ef thad finnst ekki annar 
+      idx = which(adkort$Adgerdakort==adge &
                   adkort$AdgerdaTimi<=24*60 & adkort$AdgerdaTimi>0 & adge %in% adkort$Adgerdakort
                 & adkort$Skurdstofutimi>0)
-  }
-  idx <- rev(idx)
-  idx <- idx[1:min(10,length(idx))]
-  for (s in Scenario){
+    }
+    idx <- rev(idx)
+    idx <- idx[1:min(10,length(idx))]
+    for (s in Scenario){
     
-    #Tokum 10 sidustu gildi
-    id= idx[s]
-    if(is.na(adkort$AdgerdaTimi[id])==FALSE){
+      #Tokum 10 sidustu gildi
+      id = idx[s]
+      if (is.na(adkort$AdgerdaTimi[id])==FALSE){
       
-      cat(paste0('"',kt,'-', adge,'"','\t' ,'"', laeknir,'"','\t' ,s,'\t',
-                 as.numeric(adkort$Skurdstofutimi[id])), file="kvid.dat", sep = "\n",
-          append=TRUE)}
-    else  #nota utreiknadann medaltima fyrir adgerdarkortid ur bidlista?
-      #hvad ef hann er ekki til?
-      cat(paste0('"',kt,'-', adge,'"','\t' ,'"', laeknir,'"','\t' ,s,'\t',round((Bidlisti$OrbitOperation.OperationCard_OpTime[i]*60))), file="kvid.dat", sep = "\n",
-          append=TRUE)
+        cat(paste0('"',kt,'-', adge,'"','\t' ,'"', laeknir,'"','\t' ,s,'\t',
+                   as.numeric(adkort$Skurdstofutimi[id])), file=fname, sep = "\n",append=TRUE)}
+      else  #nota utreiknadann medaltima fyrir adgerdarkortid ur bidlista?
+        #hvad ef hann er ekki til?
+        cat(paste0('"',kt,'-', adge,'"','\t' ,'"', laeknir,'"','\t' ,s,'\t',round((Bidlisti$OrbitOperation.OperationCard_OpTime[i]*60))), file=fname, sep = "\n", append=TRUE)
+    }
   }
 }
 
-cat(";",file="kvid.dat",sep="\n", append=TRUE)
-
-#Post og pre-operation times
-
-
-toc()
-#19.62sec
-
+cat(";",file=fname,sep="\n", append=TRUE)
 
 #-----------------------------------Priority---------------------------------------------#
-#Verdum ad setja i enska bokstafi til thess ad geta talid
-
-
-
-
-uLaeknir = unique(Bidlisti$OrbitOperation.RequestedOperator_Name)
-laeknar = rep(NA, length(Bidlisti$OrbitOperation.RequestedOperator_Name))
-for (i in c(1:length(Bidlisti$OrbitOperation.RequestedOperator_Name))){
-  tmpstr = Bidlisti$OrbitOperation.RequestedOperator_Name[i]
-  nafn<- paste(strsplit(tmpstr," ")[[1]], sep="", collapse ="")
-  tmp <- chartr(c('ÍÁÆÖÝÐÞÓÚÉíáæöýðþóúé-'),c('IAAOYDPOUEiaaoydpoue_'), nafn)
-  laeknar[i] = tmp
-}
-ulaeknar <- unique(laeknar)
-
-tic()
-#Bidlisti <- Bidlisti[!is.na(Bidlisti$OrbitOperation.RequestedOperator_Name),]
-for (i in unique(ulaeknar)){ 
- Bidlisti$PriorityOfPatient[laeknar == i] <- seq_len(sum(laeknar == i))
-}
-toc()
-
 
 cat("param Priority := \n", file=fname, sep=" ", append=TRUE)
-for(i in c(1:length(Adgerdarkort))){
-  adge = Adgerdarkort[i] #ur bidlista
-  kt = Kennitala[i] #ur bidlista
-  pri = Bidlisti$PriorityOfPatient[i]
-  cat(paste0('"',kt,'-',adge,'"', '\t', pri,'\n'), file=fname, sep=" ", append=TRUE) 
+for(i in c(1:nrow(Bidlisti))) {
+  if (Bidlisti$Merki[i] == 4) {
+    adge = Bidlisti$OrbitOperation.OperationCard[i] #ur bidlista
+    kt = Bidlisti$OrbitOperation.PatientSSN[i] #ur bidlista
+#  [1] "2. Viðbót, bráða"                  "3. Þrír mán, þörf"                 "2. Fjórar vikur, brýn þörf"       
+#  [4] "6. Flýting (hjarta-inniliggjandi)" "1. Ein vika, mjög brýn þörf"       "5. Ekki flýting (hjarta)"         
+#  [7] NA                                  "4. Flýting (hjarta)"              
+    if (Bidlisti$OrbitOperation.OperationPriority[i] %in% c("1. Ein vika, mjög brýn þörf", "2. Viðbót, bráða", "6. Flýting (hjarta-inniliggjandi)", "4. Flýting (hjarta)"))
+      pri = 10
+    else if (Bidlisti$OrbitOperation.OperationPriority[i] %in% c("2. Fjórar vikur, brýn þörf", "5. Ekki flýting (hjarta)"))
+      pri = 5
+    else if (Bidlisti$OrbitOperation.OperationPriority[i] %in% c("3. Þrír mán, þörf"))
+      pri = 1
+    else if (is.na(Bidlisti$OrbitOperation.OperationPriority[i]) == TRUE)
+      pri = 0
+    else
+      stop("unknown priority")
+
+    cat(paste0('"',kt,'-',adge,'"', '\t', pri,'\n'), file=fname, sep=" ", append=TRUE) 
   }
+}
 cat(";", file=fname, sep="\n", append = TRUE)
-
-#cat("param Priority2 := \n", file=fname, sep=" ", append=TRUE)
-#for(i in c(1:length(Adgerdarkort))){
-#adge = Adgerdarkort[i] #ur bidlista
-#kt = Kennitala[i] #ur bidlista
-#pri = Bidlisti$OrbitOperation.OperationPriority
-#idx= which(pri %in% c('"2. Fjórar vikur, brýn þörf"'))
-#if(length(idx)>0){
-#cat(paste0('"',kt,'-',adge,'"', '\t', '1','\n'), file=fname, sep=" ", append=TRUE) 
-#}
-#else
-#  cat(paste0('"',kt,'-',adge,'"', '\t', '10','\n'), file=fname, sep=" ", append=TRUE) 
-#}
-#cat(";", file=fname, sep="\n", append = TRUE)
-
-
-#-------------------------------------Tolfraedi gagna-----------------------------------------#
-#Annad skjal
-
-
 
