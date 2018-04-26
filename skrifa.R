@@ -88,13 +88,17 @@ if (length(ii)> 0) {
   Bidlisti <- Bidlisti[is.na(Bidlisti$OrbitOperation.OperationCard)== FALSE,]
 }
 
+
+
 toc()
 #----------------------------------Skrifum gögn--------------------------------------#
 tic()
 # skrifa í AMPL dat skrá allt sem þarf til að besta
 fname = c("kvid.dat")
-#Lesa söguleg gögn (sem lesa.R skrifar)
+# Lesa söguleg gögn (sem lesa.R skrifar)
 load("adkort.Rdata")
+# remove funny surgery times
+adkort <- adkort[adkort$Skurdstofutimi > 0 & adkort$Skurdstofutimi <= 480,]
 
 
 #----------------------------------Debug---------------------------------------------#
