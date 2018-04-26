@@ -502,9 +502,9 @@ for(i in c(1:nrow(Bidlisti))) {
 #  [4] "6. Flýting (hjarta-inniliggjandi)" "1. Ein vika, mjög brýn þörf"       "5. Ekki flýting (hjarta)"         
 #  [7] NA                                  "4. Flýting (hjarta)"              
     if (Bidlisti$OrbitOperation.OperationPriority[i] %in% c("1. Ein vika, mjög brýn þörf", "2. Viðbót, bráða", "6. Flýting (hjarta-inniliggjandi)", "4. Flýting (hjarta)"))
-      pri = 10
+      pri = 100
     else if (Bidlisti$OrbitOperation.OperationPriority[i] %in% c("2. Fjórar vikur, brýn þörf", "5. Ekki flýting (hjarta)"))
-      pri = 5
+      pri = 50
     else if (Bidlisti$OrbitOperation.OperationPriority[i] %in% c("3. Þrír mán, þörf"))
       pri = 1
     else if (is.na(Bidlisti$OrbitOperation.OperationPriority[i]) == TRUE)
