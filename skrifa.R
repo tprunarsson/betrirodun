@@ -33,9 +33,9 @@ load("Stuff.Rdata")
 
 
 # Búum til runu af dagsetningum - user defined.. 
-numberOfDays = 15
+numberOfDays = 29
 # StartDate = as.Date(Sys.Date())
-StartDate = ymd(c("2018-04-30"),tz = "GMT")
+StartDate = ymd(c("2018-04-23"),tz = "GMT")
 RodDagaStr = StartDate
 for (i in c(1:numberOfDays)) {
   RodDagaStr = c(RodDagaStr, tail(RodDagaStr, n=1) + hours(24))
