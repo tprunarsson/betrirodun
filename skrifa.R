@@ -517,3 +517,38 @@ for(i in c(1:nrow(Bidlisti))) {
 }
 cat(";", file=fname, sep="\n", append = TRUE)
 
+rodun = unlist(sort(as.numeric(Bidlisti$OrbitOperation.RegistrDay), index.return = TRUE)$ix)
+
+cat("param DayRegistered := \n", file=fname, sep=" ", append=TRUE)
+for(i in c(1:nrow(Bidlisti))) {
+  if (Bidlisti$Merki[i] == 4) {
+    adge = Bidlisti$OrbitOperation.OperationCard[i] #ur bidlista
+    kt = Bidlisti$OrbitOperation.PatientSSN[i] #ur bidlista
+    yd = max(rodun)-rodun[i]+1
+    cat(paste0('"',kt,'-',adge,'"', '\t', yd,'\n'), file=fname, sep=" ", append=TRUE) 
+  }
+}
+cat(";", file=fname, sep="\n", append = TRUE)
+
+cat("param DayRegisteredName := \n", file=fname, sep=" ", append=TRUE)
+for(i in c(1:nrow(Bidlisti))) {
+  if (Bidlisti$Merki[i] == 4) {
+    adge = Bidlisti$OrbitOperation.OperationCard[i] #ur bidlista
+    kt = Bidlisti$OrbitOperation.PatientSSN[i] #ur bidlista
+    yd = Bidlisti$OrbitOperation.RegistrDay[i]
+    cat(paste0('"',kt,'-',adge,'"', '\t', '"', yd,'"','\n'), file=fname, sep=" ", append=TRUE) 
+  }
+}
+cat(";", file=fname, sep="\n", append = TRUE)
+
+cat("param PriorityName := \n", file=fname, sep=" ", append=TRUE)
+for(i in c(1:nrow(Bidlisti))) {
+  if (Bidlisti$Merki[i] == 4) {
+    adge = Bidlisti$OrbitOperation.OperationCard[i] #ur bidlista
+    kt = Bidlisti$OrbitOperation.PatientSSN[i] #ur bidlista
+    prname = Bidlisti$OrbitOperation.OperationPriority[i]
+    cat(paste0('"',kt,'-',adge,'"', '\t', '"', prname, '"','\n'), file=fname, sep=" ", append=TRUE) 
+  }
+}
+cat(";", file=fname, sep="\n", append = TRUE)
+
