@@ -130,17 +130,19 @@ for (i in seq(1,listsize,1)) {
       hist_sergrein[i] = O$Skurðsérgreinar[idx]
       hist_acute[i] = O$`Acute.-.elective`[idx]
       hist_a_bidlista[i] = ymd(as.Date.character(Bidlisti$OrbitOperation.RegistrDay[i]))
-      idk <- which(B$`Kennitala/gervikennitala`==kt)
+      idk <- which((B$`Kennitala/gervikennitala`==kt)) # & (B$Kóði.aðalmeðferðar == O$Code.of.surg..case[idx]))
       if (length(idk) > 0) {
         if (length(idk) > 1) {
-          ik <- which.min(difftime(convertToDate(B$Skráð.innskrift.af.biðlista.Dagur[idx]),hist_date[i]))
+          ik <- which.min(abs(difftime(convertToDate(B$Skráð.á.biðlista.Dagur[idk]),hist_a_bidlista[i])))
           idk = idk[ik]
         }
         if (FALSE == (hist_a_bidlista[i] == convertToDate(B$Skráð.á.biðlista.Dagur[idk]))) {
           print("FALSE")
           print(kt)
+          print(hist_date[i])
           print(c(Bidlisti$OrbitOperation.OperationPriority[i],B$Forgangur[idk]))
           print(c(hist_a_bidlista[i],convertToDate(B$Skráð.á.biðlista.Dagur[idk])))
+          print(c(Bidlisti$OrbitOperation.RequestedOperator_Name[i], hist_laeknir[i]))
         }
         else {
   #        print("TRUE")
