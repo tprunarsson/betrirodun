@@ -202,6 +202,6 @@ adkort = data.frame(Dagsetning, Adgerdakort, Skurdstofutimi, LeguDagar, GjorDaga
 
 
 # save data frames to file
-save(file="adkort.Rdata", list = c("adkort", "LeguLikur", "LeguFjoldi", "GjorLikur", "GjorFjoldi"))
+save(file="adkort.Rdata", list = c("adkort", "LeguLikur", "LeguFjoldi", "GjorLikur", "GjorFjoldi", "AdgerdLykur", "AdgerdHefst"))
 
 
