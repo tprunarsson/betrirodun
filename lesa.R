@@ -196,12 +196,12 @@ for (uk in ukort) {
 ## í vinnslu
 
 
-adkort = data.frame(Dagsetning, Adgerdakort, Skurdstofutimi, LeguDagar, GjorDagar, Laeknir, 
+adkort = data.frame(Dagsetning, AdgerdHefst, Adgerdakort, Skurdstofutimi, LeguDagar, GjorDagar, Laeknir, 
                     Kyn, Stofa, ASA, Aldur, Sergrein,
                     UndirTimi, AdgerdaTimi, LokaTimi)
 
 
 # save data frames to file
-save(file="adkort.Rdata", list = c("adkort", "LeguLikur", "LeguFjoldi", "GjorLikur", "GjorFjoldi", "AdgerdLykur", "AdgerdHefst"))
+save(file="adkort.Rdata", list = c("adkort", "LeguLikur", "LeguFjoldi", "GjorLikur", "GjorFjoldi", "AdgerdLykur", "AdgerdHefst", "InnASkurdgang", "UtAfSkurdgangi"))
 
 
