@@ -498,20 +498,20 @@ for(i in c(1:nrow(Bidlisti))) {
   if (Bidlisti$Merki[i] == 4) {
     adge = Bidlisti$OrbitOperation.OperationCard[i] #ur bidlista
     kt = Bidlisti$OrbitOperation.PatientSSN[i] #ur bidlista
-#  [1] "2. Viðbót, bráða"                  "3. Þrír mán, þörf"                 "2. Fjórar vikur, brýn þörf"       
-#  [4] "6. Flýting (hjarta-inniliggjandi)" "1. Ein vika, mjög brýn þörf"       "5. Ekki flýting (hjarta)"         
-#  [7] NA                                  "4. Flýting (hjarta)"              
-    if (Bidlisti$OrbitOperation.OperationPriority[i] %in% c("1. Ein vika, mjög brýn þörf", "2. Viðbót, bráða", "6. Flýting (hjarta-inniliggjandi)", "4. Flýting (hjarta)"))
+    #  [1] "2. Viðbót, bráða"                  "3. Þrír mán, þörf"                 "2. Fjórar vikur, brýn þörf"       
+    #  [4] "6. Flýting (hjarta-inniliggjandi)" "1. Ein vika, mjög brýn þörf"       "5. Ekki flýting (hjarta)"         
+    #  [7] NA                                  "4. Flýting (hjarta)"              
+    if (Bidlisti$OrbitOperation.OperationPriority[i] %in% c("1. Ein vika, mjög brýn þörf", "2. Viðbót, bráða"))
       pri = 100
-    else if (Bidlisti$OrbitOperation.OperationPriority[i] %in% c("2. Fjórar vikur, brýn þörf", "5. Ekki flýting (hjarta)"))
+    else if (Bidlisti$OrbitOperation.OperationPriority[i] %in% c("2. Fjórar vikur, brýn þörf"))
       pri = 50
-    else if (Bidlisti$OrbitOperation.OperationPriority[i] %in% c("3. Þrír mán, þörf"))
+    else if (Bidlisti$OrbitOperation.OperationPriority[i] %in% c("3. Þrír mán, þörf","6. Flýting (hjarta-inniliggjandi)", "4. Flýting (hjarta)","5. Ekki flýting (hjarta)"))
       pri = 1
     else if (is.na(Bidlisti$OrbitOperation.OperationPriority[i]) == TRUE)
       pri = 0
     else
       stop("unknown priority")
-
+    
     cat(paste0('"',kt,'-',adge,'"', '\t', pri,'\n'), file=fname, sep=" ", append=TRUE) 
   }
 }
