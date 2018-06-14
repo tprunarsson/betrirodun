@@ -1,7 +1,8 @@
 #--- núllstilla og pakkar ---#
 
 rm(list=ls())
-options(encoding = "UTF-8") 
+options(encoding = "UTF-8")
+Sys.setenv(TZ='GMT')
 
 require(openxlsx)
 library(httr)
@@ -9,8 +10,6 @@ library(jsonlite)
 library(dplyr)
 library(lubridate)
 library(tictoc)
-lubridate::force_tz(Sys.time(), tzone = "UCT")
-lubridate::with_tz(Sys.time(), tzone = "UCT")
 
 
 #---------------------------------Biðlistaþjónusta----------------------------------------#
@@ -19,7 +18,7 @@ tic()
 # Þangað til að þjónustan virkar
 load("Stuff.Rdata")
 
-fname = paste0("./gogn/","2018_með_aðgerðakortum.xlsx", sep="")
+fname = paste0("./gogn/","2018_jan-13.6.xlsx", sep="")
 print(fname)
 
 O <- read.xlsx(fname, sheet = "Skurðaðgerðir - ORBIT", startRow = 2, colNames = TRUE)
@@ -44,10 +43,10 @@ B <- B[-nrow(B),]
 #get_base_df$OrbitOperation.OperationCard_PreTime <- as.numeric(get_base_df$OrbitOperation.OperationCard_PreTime)
 
 
-# Búum til runu af dagsetningum - user defined.. 
-numberOfDays = 29
+# Búum til runu af dagsetningum - user defined..
+numberOfDays = 14
 # StartDate = as.Date(Sys.Date())
-StartDate = ymd(c("2018-04-23"),tz = "GMT")
+StartDate = ymd(c("2018-06-06"),tz = "GMT")
 RodDagaStr = StartDate
 for (i in c(1:numberOfDays)) {
   RodDagaStr = c(RodDagaStr, tail(RodDagaStr, n=1) + hours(24))
@@ -63,21 +62,21 @@ Merki <- rep(NA,nrow(Bidlisti))
 
 # Veljum aðeins úr biðlista það sem er á hringbraut er á Almennu, notar gjörgæslu og sameiginlegt legupláss
 
-# Tökum það sem er skipulagt á hringbraut! 
+# Tökum það sem er skipulagt á hringbraut!
 idx1 <- substr(Bidlisti$OrbitOperation.OperationSpecialty, start = 1, stop = 3) %in% c("Hb.","Kve","Þja") &
   yday(Bidlisti$OrbitOperation.PlannedStartTime_Date) %in% RodDaga &
   Bidlisti$OrbitOperation.StatusName %in% c("Skipulagt")
 Merki[idx1] <- 1
 
 # Aðgerðir með dagsetningu og þurfa gjörgæslu
-idx2 <- Bidlisti$OrbitOperation.OvernightICU %in% c("1") & 
+idx2 <- Bidlisti$OrbitOperation.OvernightICU %in% c("1") &
   yday(Bidlisti$OrbitOperation.PlannedStartTime_Date) %in% RodDaga
 Merki[idx2] <- 2
 
 # Aðgerður sem eru með legu á samastað og Almenna...
 idx3 <- Bidlisti$OrbitOperation.OperationDepartment %in% c("13EG Kviðarhols og þvagfæra      Sími 7500",
                                                            "13G Alm                                 Sími 7360") &
-  yday(Bidlisti$OrbitOperation.PlannedStartTime_Date) %in% RodDaga & 
+  yday(Bidlisti$OrbitOperation.PlannedStartTime_Date) %in% RodDaga &
   !(Bidlisti$OrbitOperation.OperationSpecialty %in% c("Hb. Alm."))
 Merki[idx3] <- 3
 
@@ -86,6 +85,12 @@ idx4 <- Bidlisti$OrbitOperation.OperationSpecialty %in% c("Hb. Alm.") &
   Bidlisti$OrbitOperation.OperationType %in% c("Valaðgerð") &
   !is.na(Bidlisti$OrbitOperation.RequestedOperator_Name)
 Merki[idx4] <- 4
+
+Innkallad <- rep(0,nrow(Bidlisti))
+idx_ik <- substr(Bidlisti$OrbitOperation.OperationSpecialty, start = 1, stop = 3) %in% c("Hb.","Kve","Þja") &
+  yday(Bidlisti$OrbitOperation.PlannedStartTime_Date) %in% RodDaga &
+  Bidlisti$OrbitOperation.StatusName %in% c("Innkallað")
+Innkallad[idx_ik] <- 1
 
 # Tökum þetta allt saman
 Bidlisti$Merki <- Merki
@@ -115,7 +120,7 @@ for (i in seq(1,listsize,1)) {
   kt <- Bidlisti$OrbitOperation.PatientSSN[i]
   if (kt %in% O$Kennitala) {
     idx <- which(kt == O$Kennitala)
-    ix <- which((Bidlisti$OrbitOperation.OperationCard[i] == O$Aðgerðarkort[idx]) & 
+    ix <- which((Bidlisti$OrbitOperation.OperationCard[i] == O$Aðgerðarkort[idx]) &
                   (convertToDate(O$Date.of.operation[idx]) >= ymd(c("2018-04-23"),tz = "GMT")))
     idx <- idx[ix]
     if (length(idx) > 1)
@@ -138,6 +143,7 @@ for (i in seq(1,listsize,1)) {
         }
         if (FALSE == (hist_a_bidlista[i] == convertToDate(B$Skráð.á.biðlista.Dagur[idk]))) {
           print("FALSE")
+          print(i)
           print(kt)
           print(hist_date[i])
           print(c(Bidlisti$OrbitOperation.OperationPriority[i],B$Forgangur[idk]))
@@ -221,7 +227,7 @@ for (r in c(1:length(RodDaga))) {
 }
 cat(";", file=fname, sep="\n", append = TRUE)
 
-# Merkjum helgar med binary breytum theas ef thad helgi tha 1 annars 0 
+# Merkjum helgar med binary breytum theas ef thad helgi tha 1 annars 0
 cat("param isWeekend := \n",file=fname, sep=" ", append=TRUE)
 for(r in c(1:length(RodDaga))){
   Dagar <- wday(RodDagaStr)[r]
@@ -230,7 +236,7 @@ for(r in c(1:length(RodDaga))){
     cat(" 1", file=fname, sep="\n", append=TRUE)
   else
     cat(" 0", file=fname, sep="\n", append=TRUE)
-  
+
 }
 cat(";", file=fname, sep="\n", append = TRUE)
 
@@ -377,7 +383,6 @@ for(i in c(1:nrow(Bidlisti))) {
 }
 cat(";", file=fname, sep="\n", append = TRUE)
 
-
 # Skrifum planadar adgerdir i stofur og tima utfra bidlista
 
 # Festum nidur adgerdadaga
@@ -414,7 +419,7 @@ for(i in c(1:nrow(Bidlisti))){
   if ((Bidlisti$Merki[i] == 4) & (hist_completed[i] == TRUE)) {
     actualdate = hist_date[i]
     if ((yday(actualdate) <= EndDate) & (yday(actualdate) >= StartDate)) {
-          
+
       adgek = Bidlisti$OrbitOperation.OperationCard[i]
       lak = Bidlisti$OrbitOperation.RequestedOperator_Name[i]
       Dagur = yday(actualdate)
@@ -429,7 +434,7 @@ for(i in c(1:nrow(Bidlisti))){
       print(NumerDags)
       cat(paste0(NumerDags,'\t','"',kt,'-',adgek,'"','\t'," 1",'\n'),
           file=fname, sep=" ", append=TRUE)
-    
+
     }
   }
 }
@@ -503,7 +508,7 @@ cat(":=",file=fname,sep="\n", append=TRUE)
 for (i in c(1:nrow(Bidlisti))) {
   if (Bidlisti$Merki[i] > 1) {
     #We must also check if the operation card exist in our data
-    idx = which(Bidlisti$OrbitOperation.PatientAdmission[i]==c("Legudeild") & Bidlisti$OrbitOperation.OperationCard[i] %in% adkort$Adgerdakort) 
+    idx = which(Bidlisti$OrbitOperation.PatientAdmission[i]==c("Legudeild") & Bidlisti$OrbitOperation.OperationCard[i] %in% adkort$Adgerdakort)
     # & Bidlisti$OrbitOperation.OperationDepartment[i] %in% c("13EG Kviðarhols og þvagfæra      Sími 7500", "13G Alm                                 Sími 7360"))
     if(length(idx)>0){
       adge = Bidlisti$OrbitOperation.OperationCard[i]
@@ -578,7 +583,7 @@ for (i in c(1:nrow(Bidlisti))){
                 & adkort$AdgerdaTimi<=24*60 & adkort$AdgerdaTimi>0 &adge %in% adkort$Adgerdakort
                 & adkort$Skurdstofutimi>0)
     if(length(idx)<10){
-      # Notum tima  annara ef thad finnst ekki annar 
+      # Notum tima  annara ef thad finnst ekki annar
       idx = which(adkort$Adgerdakort==adge &
                     adkort$AdgerdaTimi<=24*60 & adkort$AdgerdaTimi>0 & adge %in% adkort$Adgerdakort
                   & adkort$Skurdstofutimi>0)
@@ -586,11 +591,11 @@ for (i in c(1:nrow(Bidlisti))){
     idx <- rev(idx)
     idx <- idx[1:min(10,length(idx))]
     for (s in Scenario){
-      
+
       #Tokum 10 sidustu gildi
       id = idx[s]
       if (is.na(adkort$AdgerdaTimi[id])==FALSE){
-        
+
         cat(paste0('"',kt,'-', adge,'"','\t' ,'"', laeknir,'"','\t' ,s,'\t',
                    as.numeric(adkort$Skurdstofutimi[id])), file=fname, sep = "\n",append=TRUE)}
       else  #nota utreiknadann medaltima fyrir adgerdarkortid ur bidlista?
@@ -609,9 +614,9 @@ for(i in c(1:nrow(Bidlisti))) {
   if (Bidlisti$Merki[i] == 4) {
     adge = Bidlisti$OrbitOperation.OperationCard[i] #ur bidlista
     kt = Bidlisti$OrbitOperation.PatientSSN[i] #ur bidlista
-    #  [1] "2. Viðbót, bráða"                  "3. Þrír mán, þörf"                 "2. Fjórar vikur, brýn þörf"       
-    #  [4] "6. Flýting (hjarta-inniliggjandi)" "1. Ein vika, mjög brýn þörf"       "5. Ekki flýting (hjarta)"         
-    #  [7] NA                                  "4. Flýting (hjarta)"              
+    #  [1] "2. Viðbót, bráða"                  "3. Þrír mán, þörf"                 "2. Fjórar vikur, brýn þörf"
+    #  [4] "6. Flýting (hjarta-inniliggjandi)" "1. Ein vika, mjög brýn þörf"       "5. Ekki flýting (hjarta)"
+    #  [7] NA                                  "4. Flýting (hjarta)"
     if (Bidlisti$OrbitOperation.OperationPriority[i] %in% c("1. Ein vika, mjög brýn þörf", "2. Viðbót, bráða", "6. Flýting (hjarta-inniliggjandi)", "4. Flýting (hjarta)"))
       pri = 100
     else if (Bidlisti$OrbitOperation.OperationPriority[i] %in% c("2. Fjórar vikur, brýn þörf", "5. Ekki flýting (hjarta)"))
@@ -622,8 +627,8 @@ for(i in c(1:nrow(Bidlisti))) {
       pri = 0
     else
       stop("unknown priority")
-    
-    cat(paste0('"',kt,'-',adge,'"', '\t', pri,'\n'), file=fname, sep=" ", append=TRUE) 
+
+    cat(paste0('"',kt,'-',adge,'"', '\t', pri,'\n'), file=fname, sep=" ", append=TRUE)
   }
 }
 cat(";", file=fname, sep="\n", append = TRUE)
@@ -636,7 +641,7 @@ for(i in c(1:nrow(Bidlisti))) {
     adge = Bidlisti$OrbitOperation.OperationCard[i] #ur bidlista
     kt = Bidlisti$OrbitOperation.PatientSSN[i] #ur bidlista
     yd = max(rodun)-rodun[i]+1
-    cat(paste0('"',kt,'-',adge,'"', '\t', yd,'\n'), file=fname, sep=" ", append=TRUE) 
+    cat(paste0('"',kt,'-',adge,'"', '\t', yd,'\n'), file=fname, sep=" ", append=TRUE)
   }
 }
 cat(";", file=fname, sep="\n", append = TRUE)
@@ -647,7 +652,7 @@ for(i in c(1:nrow(Bidlisti))) {
     adge = Bidlisti$OrbitOperation.OperationCard[i] #ur bidlista
     kt = Bidlisti$OrbitOperation.PatientSSN[i] #ur bidlista
     yd = Bidlisti$OrbitOperation.RegistrDay[i]
-    cat(paste0('"',kt,'-',adge,'"', '\t', '"', yd,'"','\n'), file=fname, sep=" ", append=TRUE) 
+    cat(paste0('"',kt,'-',adge,'"', '\t', '"', yd,'"','\n'), file=fname, sep=" ", append=TRUE)
   }
 }
 cat(";", file=fname, sep="\n", append = TRUE)
@@ -658,7 +663,7 @@ for(i in c(1:nrow(Bidlisti))) {
     adge = Bidlisti$OrbitOperation.OperationCard[i] #ur bidlista
     kt = Bidlisti$OrbitOperation.PatientSSN[i] #ur bidlista
     prname = Bidlisti$OrbitOperation.OperationPriority[i]
-    cat(paste0('"',kt,'-',adge,'"', '\t', '"', prname, '"','\n'), file=fname, sep=" ", append=TRUE) 
+    cat(paste0('"',kt,'-',adge,'"', '\t', '"', prname, '"','\n'), file=fname, sep=" ", append=TRUE)
   }
 }
 cat(";", file=fname, sep="\n", append = TRUE)
@@ -679,19 +684,46 @@ if (length(idx3) > 0) {
   print(hist_laeknir[idx3])
 }
 
-result_bidlisti <- data.frame(room = hist_room[idx], laeknir = hist_laeknir[idx], dagur = hist_date[idx], 
+result_bidlisti <- data.frame(room = hist_room[idx], laeknir = hist_laeknir[idx], dagur = hist_date[idx],
                               kennitala = hist_kennitala[idx], kort = hist_kort[idx], sergrein = hist_sergrein[idx], acute = hist_acute[idx])
-  
+
 Bidlisti$OrbitOperation.RequestedOperator_Name[which(hist_completed & (Bidlisti$Merki==4))]
 
 hist_idx <- which(O$`Aðgerða-stofa`=="Hb. Stofa 6" | O$`Aðgerða-stofa`=="Hb. Stofa 3")
-result_room <- data.frame(room = O$`Aðgerða-stofa`[hist_idx], laeknir = O$Aðalskurðlæknir[hist_idx], 
+
+starttime = convertToDate(O$Date.of.operation[hist_idx])+hm(O$Inn.á.stofu[hist_idx])
+starttime[is.na(starttime)] <- convertToDate(O$Date.of.operation[hist_idx[is.na(starttime)]])+hm(O$Aðgerð.hefst[hist_idx[is.na(starttime)]])
+endtime = convertToDate(O$Date.of.operation[hist_idx])+hm(O$Svæfingu.lýkur[hist_idx])
+endtime[is.na(endtime)]  = convertToDate(O$Date.of.operation[hist_idx[is.na(endtime)]])+hm(O$Aðgerð.lýkur[hist_idx[is.na(endtime)]])
+
+result_room <- data.frame(room = O$`Aðgerða-stofa`[hist_idx], laeknir = O$Aðalskurðlæknir[hist_idx],
                               dagur = convertToDate(O$Date.of.operation[hist_idx]), kennitala = O$Kennitala[hist_idx],
                               kort = O$Aðgerðarkort[hist_idx], sergrein = O$Skurðsérgreinar[hist_idx],
-                              acute = O$`Acute.-.elective`[hist_idx])
+                              acute = O$`Acute.-.elective`[hist_idx],
+                              starttime = starttime, 
+                              endtime = endtime, stringsAsFactors = FALSE)
 timabil_all <- result_room[yday(result_room$dagur)>=StartDate & yday(result_room$dagur)<=EndDate,]
 timabil_elective <- result_room[result_room$acute=="Elective" & yday(result_room$dagur)>=StartDate & yday(result_room$dagur)<=EndDate,]
+timabil_acute <- result_room[result_room$acute=="Acute" & yday(result_room$dagur)>=StartDate & yday(result_room$dagur)<=EndDate,]
 timabil_listi <- result_bidlisti[yday(result_bidlisti$dagur)>=StartDate & yday(result_bidlisti$dagur)<=EndDate,]
 
 late_arrive_idx <- which(FALSE == (timabil_elective$kennitala %in% timabil_listi$kennitala))
 timabil_ekkialista <- timabil_elective[late_arrive_idx,]
+timabil_alista <- timabil_elective[(timabil_elective$kennitala %in% timabil_listi$kennitala),]
+
+# teiknum elective aðgerðir á biðlist og fóru í aðgerð (blue)
+# acute aðgerðir framkvæmdar
+# elective aðgerðir sem búið er að framkvæma en eru voru ekki á biðlista þann 5/6
+
+
+library(timevis)
+style = c(rep("background-color: green", nrow(timabil_alista)),rep("background-color: blue", nrow(timabil_ekkialista)),rep("background-color: red", nrow(timabil_acute)))
+data = data.frame(
+  start = c(timabil_alista$starttime, timabil_ekkialista$starttime, timabil_acute$starttime),
+  end = c(timabil_alista$endtime, timabil_ekkialista$endtime, timabil_acute$endtime),
+  content = c(timabil_alista$kennitala, timabil_ekkialista$kennitala, timabil_acute$kennitala),
+  group = c(timabil_alista$room, timabil_ekkialista$room, timabil_acute$room),
+  style = style, stringsAsFactors = FALSE)
+groups = data.frame(id = unique(timabil_elective$room), content = unique(timabil_elective$room))
+timevis(data, groups)
+
