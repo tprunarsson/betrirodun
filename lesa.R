@@ -65,6 +65,7 @@ for (n in names(ORBIT)) {
 
 # Eiginleikar sem tengjast aðgerð
 Adgerdakort <- ORBIT$Aðgerðarkort
+AcuteElective <- ORBIT$`Acute.-.elective`
 Dagsetning <- ymd(convertToDateTime(ORBIT$Dagsetning.aðgerðar))
 InnASkurdgang <- Dagsetning + hm(ORBIT$Inn.á.skurðgang, quiet = TRUE)
 InnAStofu <- Dagsetning + hm(ORBIT$Inn.á.stofu, quiet = TRUE)
@@ -198,7 +199,7 @@ for (uk in ukort) {
 
 adkort = data.frame(Dagsetning, AdgerdHefst, Adgerdakort, Skurdstofutimi, LeguDagar, GjorDagar, Laeknir, 
                     Kyn, Stofa, ASA, Aldur, Sergrein,
-                    UndirTimi, AdgerdaTimi, LokaTimi)
+                    UndirTimi, AdgerdaTimi, LokaTimi, AcuteElective)
 
 
 # save data frames to file
