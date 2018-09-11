@@ -201,7 +201,9 @@ for (uk in ukort) {
 adkort = data.frame(Dagsetning, AdgerdHefst, Adgerdakort, Skurdstofutimi, LeguDagar, GjorDagar, Laeknir, 
                     Kyn, Stofa, ASA, Aldur, Sergrein,
                     UndirTimi, AdgerdaTimi, LokaTimi, AcuteElective, ID)
-
+idx = sort.int(adkort$Dagsetning,index.return = TRUE)
+idx = unlist(idx)
+adkort = adkort[idx,]
 
 # save data frames to file
 save(file="adkort.Rdata", list = c("adkort", "LeguLikur", "LeguFjoldi", "GjorLikur", "GjorFjoldi", "AdgerdLykur", "AdgerdHefst", "InnASkurdgang", "UtAfSkurdgangi"))
